@@ -1,0 +1,129 @@
+clear; clc; close all;
+
+%  ==========================================
+% PARAMETRY 
+% ===========================================
+p.q = 10^6;
+p.q_c = 10^6;
+p.c_p = 1;
+p.c_pc = 1;
+p.k0 = 10^10;
+p.E_R = 8330.1;
+p.h = 130*10^6;
+p.a = 1.678*10^6;
+p.b = 0.5;
+
+% punkt pracy
+p.F = 1;
+p.F_in = 1;
+p.V = 1;
+
+% ==============================================
+% WARUNKI POCZĄTKOWE
+% ==============================================
+
+% y(1) -> C_A
+% y(2) -> T
+% u(1) -> C_Ain
+% u(2) -> F_C
+% u(3) -> T_in
+% u(4) -> T_Cin
+
+y0   = [0.26 393.9];
+u0   = [2 15 323 365];   
+sim_time = [0, 20];      
+
+% ==============================================
+%  SYMULACJA
+% ==============================================
+
+u1_step = 0;
+u2_step = 0;
+z1_step = 0;
+z2_step = 0;
+step_time = 10;
+
+% u1 = @(t) u0(1) + u1_step * heaviside(t - step_time);
+% u2 = @(t) u0(2) + u2_step * heaviside(t - step_time);
+% z1 = @(t) u0(3) + z1_step * heaviside(t - step_time);
+% z2 = @(t) u0(4) + z2_step * heaviside(t - step_time);
+
+u1 = @(t) step_function(t, u0(1), u0(1)+u1_step, 10);
+u2 = @(t) step_function(t, u0(2), u0(2)+u2_step, 10);
+z1 = @(t) step_function(t, u0(3), u0(3)+z1_step, 10);
+z2 = @(t) step_function(t, u0(4), u0(4)+z2_step, 10);
+
+opts = odeset('RelTol', 1e-6, 'AbsTol', 1e-8, 'MaxStep', 0.05);
+[t, Y] = ode45(@(t, y) model_nl(t, y, u1, u2, z1, z2, p), sim_time, y0, opts);
+
+y1 = Y(:,1);             % np. y1 = x1
+y2 = Y(:,2);             % np. y2 = x2
+
+U1 = arrayfun(u1, t);
+U2 = arrayfun(u2, t);
+Z1 = arrayfun(z1, t);
+Z2 = arrayfun(z2, t);
+
+% ==============================================
+% WYKRESY
+% ==============================================
+
+figure('Name','Symulacja nieliniowa 2×2','NumberTitle','off', ...
+       'Position',[100 100 900 700]);
+
+subplot(3,2,1);
+plot(t, y1, 'b', 'LineWidth', 1.5);
+xlabel('t [s]'); ylabel('y_1'); title('Wyjście y_1');
+grid on;
+
+subplot(3,2,2);
+plot(t, y2, 'c', 'LineWidth', 1.5);
+xlabel('t [s]'); ylabel('y_2'); title('Wyjście y_2');
+grid on;
+
+subplot(3,2,3);
+plot(t, U1, 'y', 'LineWidth', 1.5);
+xlabel('t [s]'); ylabel('u_1'); title('Sterowanie u_1(t)');
+grid on;
+
+subplot(3,2,4);
+plot(t, U2, 'y', 'LineWidth', 1.5);
+xlabel('t [s]'); ylabel('u_2'); title('Sterowanie u_2(t)');
+grid on;
+
+subplot(3,2,5);
+plot(t, Z1, 'w', 'LineWidth', 1.5);
+xlabel('t [s]'); ylabel('z_1'); title('Sterowanie z_1(t)');
+grid on;
+
+subplot(3,2,6);
+plot(t, Z2, 'w', 'LineWidth', 1.5);
+xlabel('t [s]'); ylabel('z_2'); title('Sterowanie z_2(t)');
+grid on;
+
+sgtitle('Symulacja modelu nieliniowego 2 wejścia / 2 wyjścia');
+
+% ==============================================
+%  FUNKCJA
+% ==============================================
+function dy_dt = model_nl(t, y, u1, u2, z1, z2, p)
+
+uu1 = u1(t);
+uu2 = u2(t);
+zz1 = z1(t);
+zz2 = z2(t);
+
+dy_dt = [
+    p.F_in * uu1 / p.V - p.F * y(1) / p.V - p.k0*exp(-p.E_R/y(2)) * y(1);
+    zz1*p.F_in/p.V - y(2)*p.F/p.V + (p.h*p.k0/(p.q*p.c_p))*exp(-p.E_R/y(2)) * y(1) - ( y(2) - zz2)*((p.a*uu2^(p.b+1))/(uu2+(p.a*uu2^p.b)/(2*p.q*p.c_pc)))/(p.V*p.q*p.c_p);
+];
+
+end
+
+function out = step_function(t, before, after, step_time)
+    if t < step_time
+        out = after; 
+    else
+        out = before; 
+    end
+end
