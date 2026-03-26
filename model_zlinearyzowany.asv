@@ -70,7 +70,7 @@ sim_time = [0, sim_end];
 
 u1_step = 0;
 u2_step = 0;
-z1_step = 30;
+z1_step = 0;
 z2_step = 0;
 step_time = 10;
 
@@ -112,6 +112,8 @@ G_z = tf(ss(p.A,p.C,eye(2),0));   % transmitancja dla zakłóceń
 G_d = tf(ss(p.A,p.D,eye(2),0));
 % G_all = [G_u, G_z, G_d];
 t_tr = 0:0.01:sim_end;
+t
+G_all = tf()
 
 U1_tr = arrayfun(u1, t_tr);
 U2_tr = arrayfun(u2, t_tr);
@@ -125,11 +127,13 @@ Y_u = lsim(G_u,[U1_tr;U2_tr],t_tr);
 Y_z = lsim(G_z,[Z1_tr;Z2_tr],t_tr);
 Y_d = lsim(G_d,D1_tr,t_tr);
 
-sys0 = ss(p.A, zeros(2,2), eye(2), 0);
-Y0 = initial(sys0,y0,t_tr);
+% sys0 = ss(p.A, zeros(2,2), eye(2), 0);
+% Y0 = initial(sys0,y0,t_tr);
 
+temp = p.D./4*ones(1,length(t_tr));
 % wyraz wolny + punkt pracy
 Y_tr = Y_u + Y_z + Y_d + Y0;
+% Y_tr = Y_u + Y_z + [y0'*ones(1,length(t_tr))]';
 
 % ==============================================
 % WYKRESY

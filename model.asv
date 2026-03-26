@@ -10,7 +10,7 @@ p.c_pc = 1;
 p.k0 = 10^10;
 p.E_R = 8330.1;
 p.h = 130*10^6;
-p.a = 1.678*10^6;
+p.a = 1.678*10^6*
 p.b = 0.5;
 
 % punkt pracy
@@ -53,8 +53,8 @@ u2 = @(t) step_function(t, u0(2), u0(2)+u2_step, 10);
 z1 = @(t) step_function(t, u0(3), u0(3)+z1_step, 10);
 z2 = @(t) step_function(t, u0(4), u0(4)+z2_step, 10);
 
-opts = odeset('RelTol', 1e-6, 'AbsTol', 1e-8, 'MaxStep', 0.01);
-[t, Y] = ode15s(@(t, y) model_nl(t, y, u1, u2, z1, z2, p), sim_time, y0, opts);
+opts = odeset('RelTol', 1e-6, 'AbsTol', 1e-8, 'MaxStep', 0.05);
+[t, Y] = ode45(@(t, y) model_nl(t, y, u1, u2, z1, z2, p), sim_time, y0, opts);
 
 y1 = Y(:,1);             % np. y1 = x1
 y2 = Y(:,2);             % np. y2 = x2
@@ -93,12 +93,12 @@ grid on;
 
 subplot(3,2,5);
 plot(t, Z1, 'w', 'LineWidth', 1.5);
-xlabel('t [s]'); ylabel('z_1'); title('Zakłócenie z_1(t)');
+xlabel('t [s]'); ylabel('z_1'); title('Sterowanie z_1(t)');
 grid on;
 
 subplot(3,2,6);
 plot(t, Z2, 'w', 'LineWidth', 1.5);
-xlabel('t [s]'); ylabel('z_2'); title('Zakłócenie z_2(t)');
+xlabel('t [s]'); ylabel('z_2'); title('Sterowanie z_2(t)');
 grid on;
 
 sgtitle('Symulacja modelu nieliniowego 2 wejścia / 2 wyjścia');
@@ -119,7 +119,6 @@ dy_dt = [
 ];
 
 end
-
 
 function out = step_function(t, before, after, step_time)
     if t < step_time
