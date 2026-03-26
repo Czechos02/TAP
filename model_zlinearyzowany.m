@@ -70,7 +70,7 @@ sim_time = [0, sim_end];
 
 u1_step = 0;
 u2_step = 0;
-z1_step = 30;
+z1_step = 0;
 z2_step = 0;
 step_time = 10;
 
