@@ -1,7 +1,8 @@
 clear; clc; close all;
+if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
 
 %  ==========================================
-% PARAMETRY 
+% PARAMETRY
 % ===========================================
 p.q = 10^6;
 p.q_c = 10^6;
@@ -34,74 +35,73 @@ u0   = [2 15 323 365];
 sim_time = [0, 20];      
 
 % ==============================================
-%  SYMULACJA
+%  SYMULACJA - 4 scenariusze skokow
 % ==============================================
 
-u1_step = 0;
-u2_step = 0;
-z1_step = 0;
-z2_step = 0;
-step_time = 10;
-
-% u1 = @(t) u0(1) + u1_step * heaviside(t - step_time);
-% u2 = @(t) u0(2) + u2_step * heaviside(t - step_time);
-% z1 = @(t) u0(3) + z1_step * heaviside(t - step_time);
-% z2 = @(t) u0(4) + z2_step * heaviside(t - step_time);
-
-u1 = @(t) step_function(t, u0(1), u0(1)+u1_step, 10);
-u2 = @(t) step_function(t, u0(2), u0(2)+u2_step, 10);
-z1 = @(t) step_function(t, u0(3), u0(3)+z1_step, 10);
-z2 = @(t) step_function(t, u0(4), u0(4)+z2_step, 10);
-
+step_time = 5;
 opts = odeset('RelTol', 1e-6, 'AbsTol', 1e-8, 'MaxStep', 0.01);
-[t, Y] = ode15s(@(t, y) model_nl(t, y, u1, u2, z1, z2, p), sim_time, y0, opts);
 
-y1 = Y(:,1);             % np. y1 = x1
-y2 = Y(:,2);             % np. y2 = x2
+% Scenariusze: [dCAin, dFC, dTin, dTCin]
+scenarios = {
+    [0.1,  0,   0,  0],  'skok C_{Ain} = +0.1';
+    [0,    1,   0,  0],  'skok F_C = +1';
+    [0,    0,   5,  0],  'skok T_{in} = +5';
+    [0,    0,   0,  5],  'skok T_{Cin} = +5';
+};
 
-U1 = arrayfun(u1, t);
-U2 = arrayfun(u2, t);
-Z1 = arrayfun(z1, t);
-Z2 = arrayfun(z2, t);
+colors = {'b', [0 0.6 0], 'r', [0.6 0 0.6]};
 
-% ==============================================
-% WYKRESY
-% ==============================================
+% --- Wykres 1: Punkt pracy ---
+u1 = @(t) u0(1); u2 = @(t) u0(2);
+z1 = @(t) u0(3); z2 = @(t) u0(4);
+[t_pp, Y_pp] = ode15s(@(t,y) model_nl(t,y,u1,u2,z1,z2,p), sim_time, y0, opts);
 
-figure('Name','Symulacja nieliniowa 2×2','NumberTitle','off', ...
-       'Position',[100 100 900 700]);
-
-subplot(3,2,1);
-plot(t, y1, 'b', 'LineWidth', 1.5);
-xlabel('t [s]'); ylabel('y_1'); title('Wyjście y_1');
+figure('Name','Punkt pracy','NumberTitle','off','Position',[50 400 900 400]);
+subplot(1,2,1);
+plot(t_pp, Y_pp(:,1), 'b', 'LineWidth', 1.5);
+xlabel('t [min]'); ylabel('C_A [kmol/m^3]'); title('C_A w punkcie pracy');
 grid on;
-
-subplot(3,2,2);
-plot(t, y2, 'c', 'LineWidth', 1.5);
-xlabel('t [s]'); ylabel('y_2'); title('Wyjście y_2');
+subplot(1,2,2);
+plot(t_pp, Y_pp(:,2), 'r', 'LineWidth', 1.5);
+xlabel('t [min]'); ylabel('T [K]'); title('T w punkcie pracy');
 grid on;
+sgtitle('Symulacja modelu nieliniowego - punkt pracy');
+exportgraphics(gcf, 'wykresy/model_punkt_pracy.pdf', 'ContentType', 'vector');
 
-subplot(3,2,3);
-plot(t, U1, 'y', 'LineWidth', 1.5);
-xlabel('t [s]'); ylabel('u_1'); title('Sterowanie u_1(t)');
-grid on;
+% --- Wykres 2: Odpowiedzi na skoki poszczegolnych wejsc ---
+figure('Name','Odpowiedzi skokowe','NumberTitle','off','Position',[50 50 1000 450]);
 
-subplot(3,2,4);
-plot(t, U2, 'y', 'LineWidth', 1.5);
-xlabel('t [s]'); ylabel('u_2'); title('Sterowanie u_2(t)');
-grid on;
+for sc = 1:size(scenarios, 1)
+    du = scenarios{sc, 1};
 
-subplot(3,2,5);
-plot(t, Z1, 'w', 'LineWidth', 1.5);
-xlabel('t [s]'); ylabel('z_1'); title('Zakłócenie z_1(t)');
-grid on;
+    u1 = @(t) u0(1) + du(1)*(t >= step_time);
+    u2 = @(t) u0(2) + du(2)*(t >= step_time);
+    z1 = @(t) u0(3) + du(3)*(t >= step_time);
+    z2 = @(t) u0(4) + du(4)*(t >= step_time);
 
-subplot(3,2,6);
-plot(t, Z2, 'w', 'LineWidth', 1.5);
-xlabel('t [s]'); ylabel('z_2'); title('Zakłócenie z_2(t)');
-grid on;
+    [t_sc, Y_sc] = ode15s(@(t,y) model_nl(t,y,u1,u2,z1,z2,p), sim_time, y0, opts);
 
-sgtitle('Symulacja modelu nieliniowego 2 wejścia / 2 wyjścia');
+    subplot(1,2,1); hold on;
+    plot(t_sc, Y_sc(:,1), 'Color', colors{sc}, 'LineWidth', 1.5);
+
+    subplot(1,2,2); hold on;
+    plot(t_sc, Y_sc(:,2), 'Color', colors{sc}, 'LineWidth', 1.5);
+end
+
+leg_names = scenarios(:,2)';
+
+subplot(1,2,1);
+xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
+xlabel('t [min]'); ylabel('C_A [kmol/m^3]'); title('Wyjscie C_A');
+legend(leg_names, 'Location','best', 'FontSize', 8); grid on;
+
+subplot(1,2,2);
+xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
+xlabel('t [min]'); ylabel('T [K]'); title('Wyjscie T');
+legend(leg_names, 'Location','best', 'FontSize', 8); grid on;
+
+sgtitle('Model nieliniowy - odpowiedzi na skoki poszczegolnych wejsc (t_{skok} = 5 min)');
+exportgraphics(gcf, 'wykresy/model_odpowiedzi_skokowe.pdf', 'ContentType', 'vector');
 
 % ==============================================
 %  FUNKCJA

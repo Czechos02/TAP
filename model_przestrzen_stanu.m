@@ -1,7 +1,8 @@
 clear; clc; close all;
+if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
 
 % ==========================================
-% PARAMETRY 
+% PARAMETRY
 % ==========================================
 p.q = 10^6;
 p.q_c = 10^6;
@@ -25,121 +26,216 @@ p.V = 1;
 y0   = [0.26 393.9]; % zmienne stanu (Ca, T) w pp
 u0   = [2 15 323 365]; % sterowania (Cain, Fc) i zaklocenia (Tin, Tcin) w pp  
 
-%% Model LTI %% ciagly DO SPRAWDZENIA
+%% ============================================================
+%  PUNKT 1a: Model liniowy ciagly (przestrzen stanow + transmitancje)
+% =============================================================
 
 A = jacobian_A(y0,u0,p);
 B = jacobian_B(y0,u0,p);
-C = eye(2);
-D = zeros(2,4);
-t = linspace(0,20,1000);
+C_mat = eye(2);
+D_mat = zeros(2,4);
 
-du = zeros(length(t),4);
-step_time = 10;
-du(:,1) = (t >= step_time) * 1;     % skok CAin
-du(:,2) = (t >= step_time) * 1;     % skok Fc
-du(:,3) = (t >= step_time) * 1;     % skok Tin
-du(:,4) = (t >= step_time) * 1;     % skok Tcin
+sys_c = ss(A, B, C_mat, D_mat);
 
-sys_c = ss(A,B,C,D);
+% --- Wyswietlenie macierzy i transmitancji ---
+fprintf('========================================\n');
+fprintf('  MODEL CIAGLY (LTI)\n');
+fprintf('========================================\n');
+fprintf('A =\n'); disp(A);
+fprintf('B =\n'); disp(B);
 
-%% Model LTI %% dyskretny DO SPRAWDZENIA
+eigA = eig(A);
+fprintf('Wartosci wlasne A:\n');
+fprintf('  l1 = %.4f + %.4fi\n', real(eigA(1)), imag(eigA(1)));
+fprintf('  l2 = %.4f + %.4fi\n\n', real(eigA(2)), imag(eigA(2)));
+
+fprintf('Transmitancje ciagle G(s):\n');
+G_c = tf(sys_c);
+G_c
+
+% --- Wykres 1a-1: Odpowiedzi skokowe - przestrzen stanow ---
+t_sim = linspace(0, 20, 5000);
+in_names  = {'C_{Ain}', 'F_C', 'T_{in}', 'T_{Cin}'};
+colors_in = {'b', [0 0.6 0], 'r', [0.6 0 0.6]};
+
+figure('Name','1a - Przestrzen stanow','NumberTitle','off', ...
+    'Position',[50 400 1000 500]);
+
+for in_i = 1:4
+    du_i = zeros(length(t_sim), 4);
+    du_i(:, in_i) = 1;
+    [y_i, ~] = lsim(sys_c, du_i, t_sim);
+
+    subplot(1,2,1); hold on;
+    plot(t_sim, y_i(:,1), 'Color', colors_in{in_i}, 'LineWidth', 1.5);
+
+    subplot(1,2,2); hold on;
+    plot(t_sim, y_i(:,2), 'Color', colors_in{in_i}, 'LineWidth', 1.5);
+end
+
+leg_ss = cellfun(@(s) ['skok ', s, ' = +1'], in_names, 'UniformOutput', false);
+
+subplot(1,2,1);
+xlabel('t [min]'); ylabel('\Delta C_A'); title('Wyjscie C_A');
+legend(leg_ss, 'Location','best', 'FontSize', 8); grid on;
+
+subplot(1,2,2);
+xlabel('t [min]'); ylabel('\Delta T'); title('Wyjscie T');
+legend(leg_ss, 'Location','best', 'FontSize', 8); grid on;
+
+sgtitle('Model liniowy - przestrzen stanow (punkt 1a)');
+exportgraphics(gcf, 'wykresy/1a_przestrzen_stanow.pdf', 'ContentType', 'vector');
+
+% --- Wykres 1a-2: Odpowiedzi skokowe - transmitancje ---
+figure('Name','1a - Transmitancje','NumberTitle','off', ...
+    'Position',[50 50 1000 500]);
+
+u_step = ones(length(t_sim), 1);
+
+for in_i = 1:4
+    for out_i = 1:2
+        subplot(1,2,out_i); hold on;
+        y_tf = lsim(G_c(out_i, in_i), u_step, t_sim);
+        plot(t_sim, y_tf, 'Color', colors_in{in_i}, 'LineWidth', 1.5);
+    end
+end
+
+subplot(1,2,1);
+xlabel('t [min]'); ylabel('\Delta C_A'); title('Wyjscie C_A');
+legend(leg_ss, 'Location','best', 'FontSize', 8); grid on;
+
+subplot(1,2,2);
+xlabel('t [min]'); ylabel('\Delta T'); title('Wyjscie T');
+legend(leg_ss, 'Location','best', 'FontSize', 8); grid on;
+
+sgtitle('Model liniowy - transmitancje G(s) (punkt 1a)');
+exportgraphics(gcf, 'wykresy/1a_transmitancje.pdf', 'ContentType', 'vector');
+
+%% ============================================================
+%  Model LTI dyskretny - porownanie roznych Tp (jakosc dyskretyzacji)
+% =============================================================
+
+Tp_test = [0.01, 0.05, 0.1, 0.5];
+t_fine = linspace(0, 20, 5000);
+colors_tp = {'r--', 'g-.', 'm-', 'k--'};
+
+% Odpowiedzi skokowe: ciagly vs dyskretny dla roznych Tp
+% Testujemy skok CAin=+1 (wejscie 1)
+du_step = zeros(length(t_fine), 4);
+du_step(:, 1) = 1;
+[y_c_step, ~] = lsim(sys_c, du_step, t_fine);
+
+figure('Name','Jakosc dyskretyzacji - skok CAin','NumberTitle','off', ...
+    'Position',[50 50 1000 500]);
+
+for i = 1:length(Tp_test)
+    Tp = Tp_test(i);
+    sys_d_i = c2d(sys_c, Tp, 'zoh');
+    t_d_i = (0:Tp:20)';
+    du_d_i = zeros(length(t_d_i), 4);
+    du_d_i(:, 1) = 1;
+    [y_d_i, ~] = lsim(sys_d_i, du_d_i, t_d_i);
+
+    subplot(1,2,1); hold on;
+    stairs(t_d_i, y_d_i(:,1), colors_tp{i}, 'LineWidth', 1.2);
+    subplot(1,2,2); hold on;
+    stairs(t_d_i, y_d_i(:,2), colors_tp{i}, 'LineWidth', 1.2);
+end
+
+subplot(1,2,1);
+plot(t_fine, y_c_step(:,1), 'b-', 'LineWidth', 2.5);
+xlabel('t [min]'); ylabel('\Delta C_A'); title('C_A');
+legend('Tp=0.01','Tp=0.05','Tp=0.1','Tp=0.5','ciagly','Location','best');
+grid on;
+
+subplot(1,2,2);
+plot(t_fine, y_c_step(:,2), 'b-', 'LineWidth', 2.5);
+xlabel('t [min]'); ylabel('\Delta T'); title('T');
+legend('Tp=0.01','Tp=0.05','Tp=0.1','Tp=0.5','ciagly','Location','best');
+grid on;
+
+sgtitle('Jakosc dyskretyzacji (ZOH) - skok C_{Ain} = +1');
+exportgraphics(gcf, 'wykresy/1d_dyskretyzacja_CAin.pdf', 'ContentType', 'vector');
+
+% Testujemy skok FC=+1 (wejscie 2)
+du_step2 = zeros(length(t_fine), 4);
+du_step2(:, 2) = 1;
+[y_c_step2, ~] = lsim(sys_c, du_step2, t_fine);
+
+figure('Name','Jakosc dyskretyzacji - skok FC','NumberTitle','off', ...
+    'Position',[100 100 1000 500]);
+
+for i = 1:length(Tp_test)
+    Tp = Tp_test(i);
+    sys_d_i = c2d(sys_c, Tp, 'zoh');
+    t_d_i = (0:Tp:20)';
+    du_d_i = zeros(length(t_d_i), 4);
+    du_d_i(:, 2) = 1;
+    [y_d_i, ~] = lsim(sys_d_i, du_d_i, t_d_i);
+
+    subplot(1,2,1); hold on;
+    stairs(t_d_i, y_d_i(:,1), colors_tp{i}, 'LineWidth', 1.2);
+    subplot(1,2,2); hold on;
+    stairs(t_d_i, y_d_i(:,2), colors_tp{i}, 'LineWidth', 1.2);
+end
+
+subplot(1,2,1);
+plot(t_fine, y_c_step2(:,1), 'b-', 'LineWidth', 2.5);
+xlabel('t [min]'); ylabel('\Delta C_A'); title('C_A');
+legend('Tp=0.01','Tp=0.05','Tp=0.1','Tp=0.5','ciagly','Location','best');
+grid on;
+
+subplot(1,2,2);
+plot(t_fine, y_c_step2(:,2), 'b-', 'LineWidth', 2.5);
+xlabel('t [min]'); ylabel('\Delta T'); title('T');
+legend('Tp=0.01','Tp=0.05','Tp=0.1','Tp=0.5','ciagly','Location','best');
+grid on;
+
+sgtitle('Jakosc dyskretyzacji (ZOH) - skok F_C = +1');
+exportgraphics(gcf, 'wykresy/1d_dyskretyzacja_FC.pdf', 'ContentType', 'vector');
+
+%% Wybrany Tp = 0.1 - macierze i transmitancje
 Ts = 0.1;
 sys_d = c2d(sys_c, Ts, 'zoh');
-t_dysk = (0:Ts:20)';
+[Ad, Bd, Cd, Dd] = ssdata(sys_d);
 
+fprintf('========================================\n');
+fprintf('  MODEL DYSKRETNY (Tp = %.2f min)\n', Ts);
+fprintf('========================================\n');
+fprintf('Ad =\n'); disp(Ad);
+fprintf('Bd =\n'); disp(Bd);
+
+eig_d = eig(Ad);
+fprintf('Wartosci wlasne Ad:\n');
+fprintf('  z1 = %.6f + %.6fi  (|z1| = %.6f)\n', real(eig_d(1)), imag(eig_d(1)), abs(eig_d(1)));
+fprintf('  z2 = %.6f + %.6fi  (|z2| = %.6f)\n', real(eig_d(2)), imag(eig_d(2)), abs(eig_d(2)));
+
+fprintf('\nTransmitancje dyskretne:\n');
+Gz = tf(sys_d)
+
+%% Symulacja modelu dyskretnego (lsim)
+t_dysk = (0:Ts:20)';
 du_dysk = zeros(length(t_dysk),4);
 step_time = 10;
 du_dysk(t_dysk>=step_time,1) = 1;
-du_dysk(t_dysk>=step_time,2) = 1;
-du_dysk(t_dysk>=step_time,3) = 1;
-du_dysk(t_dysk>=step_time,4) = 1;
 
-% symulacja (BEZ PĘTLI)
-[y_d, t_d, x_d] = lsim(sys_d, du_dysk, t_dysk);
+[y_d, t_d] = lsim(sys_d, du_dysk, t_dysk);
 
-y1_d = y_d(:,1) + y0(1);
-y2_d = y_d(:,2) + y0(2);
+figure('Name','Model dyskretny','NumberTitle','off', ...
+    'Position',[100 100 900 400]);
 
-% Transmitancja dyskretna
-Gz = tf(sys_d)
-
-figure;
-subplot(3,2,1);
-stairs(t_d, y1_d, 'b','LineWidth',1.5);
-title('C_A (dyskretny)');
+subplot(1,2,1);
+stairs(t_d, y_d(:,1) + y0(1), 'b', 'LineWidth', 1.5);
+xlabel('t [min]'); ylabel('C_A [kmol/m^3]'); title('C_A (dyskretny)');
 grid on;
 
-subplot(3,2,2);
-stairs(t_d, y2_d, 'c','LineWidth',1.5);
-title('T (dyskretny)');
+subplot(1,2,2);
+stairs(t_d, y_d(:,2) + y0(2), 'r', 'LineWidth', 1.5);
+xlabel('t [min]'); ylabel('T [K]'); title('T (dyskretny)');
 grid on;
 
-subplot(3,2,3);
-plot(t_d, du_dysk(:,1), 'y', 'LineWidth', 1.5);
-xlabel('T_dysk'); ylabel('u_1'); title('u_1');
-grid on;
-
-subplot(3,2,4);
-plot(t_d, du_dysk(:,2), 'y', 'LineWidth', 1.5);
-xlabel('T_dysk'); ylabel('u_2'); title('u_2');
-grid on;
-
-subplot(3,2,5);
-plot(t_d, du_dysk(:,3), 'g', 'LineWidth', 1.5);
-xlabel('T_dysk'); ylabel('z_1'); title('z_1');
-grid on;
-
-subplot(3,2,6);
-plot(t_d, du_dysk(:,4), 'g', 'LineWidth', 1.5);
-xlabel('T_dysk'); ylabel('z_2'); title('z_2');
-grid on;
-
-%% symulacja ciagla LTI %%
-
-[y_lin, t, x_lin] = lsim(sys_c, du, t);
-y1_lin = y_lin(:,1) + y0(1);
-y2_lin = y_lin(:,2) + y0(2);
-
-U1 = du(:,1) + u0(1);
-U2 = du(:,2) + u0(2);
-Z1 = du(:,3) + u0(3);
-Z2 = du(:,4) + u0(4);
-
-figure('Name','Model liniowy vs wejścia','NumberTitle','off', ...
-       'Position',[100 100 900 700]);
-
-subplot(3,2,1);
-plot(t, y1_lin, 'b', 'LineWidth', 1.5);
-xlabel('t'); ylabel('C_A'); title('C_A (model liniowy)');
-grid on;
-
-subplot(3,2,2);
-plot(t, y2_lin, 'c', 'LineWidth', 1.5);
-xlabel('t'); ylabel('T'); title('T (model liniowy)');
-grid on;
-
-subplot(3,2,3);
-plot(t, U1, 'y', 'LineWidth', 1.5);
-xlabel('t'); ylabel('C_{Ain}'); title('u_1');
-grid on;
-
-subplot(3,2,4);
-plot(t, U2, 'y', 'LineWidth', 1.5);
-xlabel('t'); ylabel('F_c'); title('u_2');
-grid on;
-
-subplot(3,2,5);
-plot(t, Z1, 'g', 'LineWidth', 1.5);
-xlabel('t'); ylabel('T_{in}'); title('z_1');
-grid on;
-
-subplot(3,2,6);
-plot(t, Z2, 'g', 'LineWidth', 1.5);
-xlabel('t'); ylabel('T_{cin}'); title('z_2');
-grid on;
-
-sgtitle('Symulacja modelu liniowego (LTI)');
-
+sgtitle(sprintf('Symulacja modelu dyskretnego (Tp = %.2f min, lsim)', Ts));
+exportgraphics(gcf, 'wykresy/1d_model_dyskretny.pdf', 'ContentType', 'vector');
 
 % ==============================================
 % JACOBIAN Macierzy A oraz B
