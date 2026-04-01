@@ -103,7 +103,6 @@ s = tf('s');
 
 G_u = tf(ss(p.A,p.B,eye(2),0));   % transmitancja dla wejść sterujących
 
-% G_all = [G_u, G_z, G_d];
 t_tr = 0:0.01:sim_end;
 
 U1_tr = arrayfun(u1_lin, t_tr);
@@ -195,24 +194,6 @@ T_in = z1(t);
 T_Cin = z2(t);
 C_A = y(1);
 T = y(2);
-% 
-% A = [p.p12 + p.p13*exp(p.p14/p.T_0), (-p.p14/p.T_0^2)*p.p14*p.C_A_0*exp(p.p14/p.T_0);
-%     p.p23*exp(p.p24/p.T_0), p.p22+ (-p.p24/p.T_0^2)*p.p24*p.C_A_0*exp(p.p24/p.T_0)+p.F_C0/(p.p25*p.F_C0^(1-p.b)+p.p26)];
-% 
-% 
-% dy_dt = [
-% p.p11*C_Ain ...
-% + p.p12*C_A ...
-% + p.p13*exp(p.p14/p.T_0)*p.C_A_0 ...
-% + p.p13*exp(p.p14/p.T_0)*(C_A - p.C_A_0) ...
-% + (-p.p14)*((p.T_0)^(-2))*p.p13*p.C_A_0*exp(p.p14/p.T_0)*(T-p.T_0);
-% p.p21*T_in ...
-% + p.p22*T ...
-% + p.p23*exp(p.p24/p.T_0)*p.C_A_0 ...
-% + p.p23*exp(p.p24/p.T_0)*(C_A - p.C_A_0) ...
-% + (-p.p24)*((p.T_0)^(-2))*p.p23*p.C_A_0*exp(p.p24/p.T_0)*(T-p.T_0) ...
-% + (T-T_Cin)*F_C/(p.p25*((F_C)^(1-p.b))+p.p26);
-% ];
 
 dy_dt = p.A*[C_A; T]+p.B*[C_Ain;F_C;T_in;T_Cin];
 
