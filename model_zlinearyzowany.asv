@@ -40,14 +40,9 @@ p.T_Cin0 = 365;
 p.A = [p.p12 + p.p13*exp(p.p14/p.T_0), (-p.p14/p.T_0^2)*p.p13*p.C_A_0*exp(p.p14/p.T_0);
     p.p23*exp(p.p24/p.T_0), p.p22+ (-p.p24/p.T_0^2)*p.p23*p.C_A_0*exp(p.p24/p.T_0)+p.F_C0/(p.p25*p.F_C0^(1-p.b)+p.p26)];
 
-p.B = [p.p11, 0;
-    0, (p.T_0-p.T_Cin0)*(p.p25*p.F_C0^(1-b)+p.p26-(1-b)*p.F_C0*p.p25*p.F_C0^(-b))/((p.p25*p.F_C0^(1-p.b)+p.p26)^2)];
+p.B = [p.p11, 0, 0, 0;
+    0, (p.T_0-p.T_Cin0)*(p.p25*p.F_C0^(1-b)+p.p26-(1-b)*p.F_C0*p.p25*p.F_C0^(-b))/((p.p25*p.F_C0^(1-p.b)+p.p26)^2), p.p21,(-p.F_C0)/(p.p25*p.F_C0^(1-b)+p.p26)];
 
-p.C = [0,0;
-    p.p21, (-p.F_C0)/(p.p25*p.F_C0^(1-b)+p.p26)];
-
-p.D = [p.p13*p.C_A_0*exp(p.p14/p.T_0)*p.p14/p.T_0;
-    p.p23*p.C_A_0*exp(p.p24/p.T_0)*p.p24/p.T_0+(p.T_Cin0-p.T_0)*p.F_C0*(p.p25*p.F_C0^(1-b)+p.p26-(1-b)*p.F_C0*p.p25*p.F_C0^(-b))/((p.p25*p.F_C0^(1-p.b)+p.p26)^2)];
 % ==============================================
 % WARUNKI POCZĄTKOWE
 % ==============================================
@@ -68,25 +63,27 @@ sim_time = [0, sim_end];
 %  SYMULACJA
 % ==============================================
 
-u1_step = 0;
+u1_step = 0.5;
 u2_step = 0;
 z1_step = 0;
 z2_step = 0;
 step_time = 10;
-
-% u1 = @(t) u0(1) + u1_step * heaviside(t - step_time);
-% u2 = @(t) u0(2) + u2_step * heaviside(t - step_time);
-% z1 = @(t) u0(3) + z1_step * heaviside(t - step_time);
-% z2 = @(t) u0(4) + z2_step * heaviside(t - step_time);
 
 u1 = @(t) step_function(t, u0(1), u0(1)+u1_step, 10);
 u2 = @(t) step_function(t, u0(2), u0(2)+u2_step, 10);
 z1 = @(t) step_function(t, u0(3), u0(3)+z1_step, 10);
 z2 = @(t) step_function(t, u0(4), u0(4)+z2_step, 10);
 
+u1_lin = @(t) step_function(t, 0, u1_step, 10);
+u2_lin = @(t) step_function(t, 0, u2_step, 10);
+z1_lin = @(t) step_function(t, 0, z1_step, 10);
+z2_lin = @(t) step_function(t, 0, z2_step, 10);
+
 opts = odeset('RelTol', 1e-6, 'AbsTol', 1e-8, 'MaxStep', 0.01);
 [t, Y] = ode15s(@(t, y) model_nl(t, y, u1, u2, z1, z2, p), sim_time, y0, opts);
-[t_lin, Y_lin] = ode15s(@(t, y) model_lin(t, y, u1, u2, z1, z2, p), sim_time, y0, opts);
+[t_lin, Y_lin] = ode15s(@(t, y) model_lin(t, y, u1_lin, u2_lin, z1_lin, z2_lin, p), sim_time, [0 0], opts);
+
+Y_lin = Y_lin + y0;
 
 y1 = Y(:,1);             % np. y1 = x1
 y2 = Y(:,2);             % np. y2 = x2
@@ -94,46 +91,31 @@ y2 = Y(:,2);             % np. y2 = x2
 y1_lin = Y_lin(:,1);             % np. y1 = x1
 y2_lin = Y_lin(:,2);             % np. y2 = x2
 
-U1 = arrayfun(u1, t);
-U2 = arrayfun(u2, t);
-Z1 = arrayfun(z1, t);
-Z2 = arrayfun(z2, t);
+U1 = arrayfun(u1_lin, t);
+U2 = arrayfun(u2_lin, t);
+Z1 = arrayfun(z1_lin, t);
+Z2 = arrayfun(z2_lin, t);
 
 % ==============================================
 % SYMULACJA TRANSMITANCJI MIMO
 % ==============================================
 s = tf('s');
-% G_u = inv(s*eye(2)-p.A)*p.B;   % transmitancja dla wejść sterujących
-% G_z = inv(s*eye(2)-p.A)*p.C;   % transmitancja dla zakłóceń
-% G_d = inv(s*eye(2)-p.A)*p.D;
 
 G_u = tf(ss(p.A,p.B,eye(2),0));   % transmitancja dla wejść sterujących
-G_z = tf(ss(p.A,p.C,eye(2),0));   % transmitancja dla zakłóceń
-G_d = tf(ss(p.A,p.D,eye(2),0));
+
 % G_all = [G_u, G_z, G_d];
 t_tr = 0:0.01:sim_end;
-t
-G_all = tf()
 
-U1_tr = arrayfun(u1, t_tr);
-U2_tr = arrayfun(u2, t_tr);
-Z1_tr = arrayfun(z1, t_tr);
-Z2_tr = arrayfun(z2, t_tr);
-D1_tr = ones(1,length(t_tr));
-D2_tr = ones(1,length(t_tr));
+U1_tr = arrayfun(u1_lin, t_tr);
+U2_tr = arrayfun(u2_lin, t_tr);
+Z1_tr = arrayfun(z1_lin, t_tr);
+Z2_tr = arrayfun(z2_lin, t_tr);
 % odpowiedź na wymuszenia
 
-Y_u = lsim(G_u,[U1_tr;U2_tr],t_tr);
-Y_z = lsim(G_z,[Z1_tr;Z2_tr],t_tr);
-Y_d = lsim(G_d,D1_tr,t_tr);
+Y_u = lsim(G_u,[U1_tr;U2_tr;Z1_tr;Z2_tr],t_tr);
 
-% sys0 = ss(p.A, zeros(2,2), eye(2), 0);
-% Y0 = initial(sys0,y0,t_tr);
-
-temp = p.D./4*ones(1,length(t_tr));
 % wyraz wolny + punkt pracy
-Y_tr = Y_u + Y_z + Y_d + Y0;
-% Y_tr = Y_u + Y_z + [y0'*ones(1,length(t_tr))]';
+Y_tr = Y_u + y0;
 
 % ==============================================
 % WYKRESY
@@ -213,26 +195,8 @@ T_in = z1(t);
 T_Cin = z2(t);
 C_A = y(1);
 T = y(2);
-% 
-% A = [p.p12 + p.p13*exp(p.p14/p.T_0), (-p.p14/p.T_0^2)*p.p14*p.C_A_0*exp(p.p14/p.T_0);
-%     p.p23*exp(p.p24/p.T_0), p.p22+ (-p.p24/p.T_0^2)*p.p24*p.C_A_0*exp(p.p24/p.T_0)+p.F_C0/(p.p25*p.F_C0^(1-p.b)+p.p26)];
-% 
-% 
-% dy_dt = [
-% p.p11*C_Ain ...
-% + p.p12*C_A ...
-% + p.p13*exp(p.p14/p.T_0)*p.C_A_0 ...
-% + p.p13*exp(p.p14/p.T_0)*(C_A - p.C_A_0) ...
-% + (-p.p14)*((p.T_0)^(-2))*p.p13*p.C_A_0*exp(p.p14/p.T_0)*(T-p.T_0);
-% p.p21*T_in ...
-% + p.p22*T ...
-% + p.p23*exp(p.p24/p.T_0)*p.C_A_0 ...
-% + p.p23*exp(p.p24/p.T_0)*(C_A - p.C_A_0) ...
-% + (-p.p24)*((p.T_0)^(-2))*p.p23*p.C_A_0*exp(p.p24/p.T_0)*(T-p.T_0) ...
-% + (T-T_Cin)*F_C/(p.p25*((F_C)^(1-p.b))+p.p26);
-% ];
 
-dy_dt = p.A*[C_A; T]+p.B*[C_Ain;F_C]+p.C*[T_in;T_Cin]+p.D;
+dy_dt = p.A*[C_A; T]+p.B*[C_Ain;F_C;T_in;T_Cin];
 
 end
 
