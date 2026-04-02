@@ -523,52 +523,36 @@ Transmitancja dyskretna macierzowa:
 
 Wartości własne modelu dyskretnego $z_i = e^{\lambda_i T_p}$ spełniają warunek stabilności $|z_i| < 1$ dla wszystkich badanych $T_p$.
 
-\subsection{Jakość dyskretyzacji}
+\subsection{Wybrany okres próbkowania}
 
-Dyskretyzację przeprowadzono dla czterech wartości okresu próbkowania: $T_p \in \{0{,}01;\; 0{,}05;\; 0{,}1;\; 0{,}5\}$ min.
+Jako okres próbkowania wybrano $T_p = 0{,}1$ min -- kompromis między dokładnością odwzorowania dynamiki obiektu a~złożonością obliczeniową przyszłego regulatora DMC. Wartości własne modelu dyskretnego spełniają warunek stabilności $|z_i| < 1$.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1d_dyskretyzacja_CAin.pdf}
-    \caption{Jakość dyskretyzacji -- skok $C_{Ain}$ (ciągły vs dyskretny dla różnych $T_p$)}
-    \label{fig:1d_cain}
-\end{figure}
+\subsection{Weryfikacja -- porównanie modelu dyskretnego z~nieliniowym i~liniowym ciągłym}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1d_dyskretyzacja_FC.pdf}
-    \caption{Jakość dyskretyzacji -- skok $F_C$ (ciągły vs dyskretny dla różnych $T_p$)}
-    \label{fig:1d_fc}
-\end{figure}
-
-\textbf{Obserwacje:}
+W~celu weryfikacji poprawności dyskretyzacji porównano odpowiedzi trzech modeli na te same wymuszenia skokowe:
 \begin{itemize}
-    \item Dla $T_p = 0{,}01$ i~$T_p = 0{,}05$ min odpowiedzi dyskretne są praktycznie nieodróżnialne od ciągłych.
-    \item Dla $T_p = 0{,}1$ min jakość jest nadal bardzo dobra -- niewielkie różnice widoczne tylko w~szczytach oscylacji.
-    \item Dla $T_p = 0{,}5$ min pojawiają się zauważalne różnice -- zbyt rzadkie próbkowanie względem dynamiki obiektu.
+    \item \textbf{nieliniowy} -- symulacja \texttt{ode15s} (model referencyjny),
+    \item \textbf{liniowy ciągły} -- symulacja \texttt{lsim} na obiekcie \texttt{ss(A,B,C,D)},
+    \item \textbf{liniowy dyskretny} -- symulacja \texttt{lsim} na obiekcie \texttt{c2d(sys\_c, 0.1, 'zoh')}.
 \end{itemize}
 
-\textbf{Wybrany okres próbkowania:} $T_p = 0{,}1$ min -- kompromis między jakością dyskretyzacji a~złożonością obliczeniową regulatora DMC.
-
-\subsection{Symulacja modelu dyskretnego}
+Testowano dwa małe skoki: $\Delta C_{Ain} = +0{,}1$ kmol/m$^3$ oraz $\Delta F_C = +1$ m$^3$/min.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1d_model_dyskretny.pdf}
-    \caption{Symulacja modelu dyskretnego ($T_p = 0{,}1$ min, lsim)}
-    \label{fig:1d_sim}
+    \includegraphics[width=0.95\textwidth]{wykresy/1d_weryfikacja_CAin.pdf}
+    \caption{Porównanie NL vs LIN ciągły vs dyskretny -- skok $\Delta C_{Ain} = +0{,}1$}
+    \label{fig:1d_werf_cain}
 \end{figure}
-
-\subsection{Weryfikacja -- model dyskretny vs nieliniowy}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1d_weryfikacja.pdf}
-    \caption{Weryfikacja: model nieliniowy vs dyskretny liniowy ($T_p = 0{,}1$ min)}
-    \label{fig:1d_werf}
+    \includegraphics[width=0.95\textwidth]{wykresy/1d_weryfikacja_FC.pdf}
+    \caption{Porównanie NL vs LIN ciągły vs dyskretny -- skok $\Delta F_C = +1$}
+    \label{fig:1d_werf_fc}
 \end{figure}
 
-Model dyskretny daje zbliżone wyniki do nieliniowego przy małych skokach, co potwierdza poprawność dyskretyzacji. Różnice wynikają z~błędu linearyzacji (omówionego w~punkcie 1c), nie z~samej dyskretyzacji.
+Dla małych skoków wszystkie trzy krzywe praktycznie się pokrywają, co potwierdza poprawność dyskretyzacji -- model dyskretny wiernie odwzorowuje model liniowy ciągły przy wybranym $T_p = 0{,}1$ min, a~ewentualne różnice względem modelu nieliniowego wynikają wyłącznie z~błędu linearyzacji, nie z~samej dyskretyzacji.
 
 % ==============================================================
 \section{Podsumowanie}

@@ -1,9 +1,7 @@
 clear; clc; close all;
 if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
 
-%  ==========================================
-% PARAMETRY
-% ===========================================
+%% Parametry
 p.q = 10^6;
 p.q_c = 10^6;
 p.c_p = 1;
@@ -14,34 +12,19 @@ p.h = 130*10^6;
 p.a = 1.678*10^6;
 p.b = 0.5;
 
-% punkt pracy
 p.F = 1;
 p.F_in = 1;
 p.V = 1;
 
-% ==============================================
-% WARUNKI POCZĄTKOWE
-% ==============================================
-
-% y(1) -> C_A
-% y(2) -> T
-% u(1) -> C_Ain
-% u(2) -> F_C
-% u(3) -> T_in
-% u(4) -> T_Cin
-
+%% Warunki poczatkowe
 y0   = [0.26 393.9];
-u0   = [2 15 323 365];   
-sim_time = [0, 20];      
+u0   = [2 15 323 365];
+sim_time = [0, 20];
 
-% ==============================================
-%  SYMULACJA - 4 scenariusze skokow
-% ==============================================
-
+%% Symulacja
 step_time = 5;
 opts = odeset('RelTol', 1e-6, 'AbsTol', 1e-8, 'MaxStep', 0.01);
 
-% Scenariusze: [dCAin, dFC, dTin, dTCin]
 scenarios = {
     [0.1,  0,   0,  0],  'skok C_{Ain} = +0.1';
     [0,    1,   0,  0],  'skok F_C = +1';
@@ -51,7 +34,7 @@ scenarios = {
 
 colors = {'b', [0 0.6 0], 'r', [0.6 0 0.6]};
 
-% --- Wykres 1: Punkt pracy ---
+% Punkt pracy
 u1 = @(t) u0(1); u2 = @(t) u0(2);
 z1 = @(t) u0(3); z2 = @(t) u0(4);
 [t_pp, Y_pp] = ode15s(@(t,y) model_nl(t,y,u1,u2,z1,z2,p), sim_time, y0, opts);
@@ -68,7 +51,7 @@ grid on;
 sgtitle('Symulacja modelu nieliniowego - punkt pracy');
 exportgraphics(gcf, 'wykresy/model_punkt_pracy.pdf', 'ContentType', 'vector');
 
-% --- Wykres 2: Odpowiedzi na skoki poszczegolnych wejsc ---
+% Odpowiedzi skokowe
 figure('Name','Odpowiedzi skokowe','NumberTitle','off','Position',[50 50 1000 450]);
 
 for sc = 1:size(scenarios, 1)
@@ -103,9 +86,8 @@ legend(leg_names, 'Location','best', 'FontSize', 8); grid on;
 sgtitle('Model nieliniowy - odpowiedzi na skoki poszczegolnych wejsc (t_{skok} = 5 min)');
 exportgraphics(gcf, 'wykresy/model_odpowiedzi_skokowe.pdf', 'ContentType', 'vector');
 
-% ==============================================
-%  FUNKCJA
-% ==============================================
+%%
+
 function dy_dt = model_nl(t, y, u1, u2, z1, z2, p)
 
 uu1 = u1(t);
@@ -123,8 +105,8 @@ end
 
 function out = step_function(t, before, after, step_time)
     if t < step_time
-        out = before; 
+        out = before;
     else
-        out = after; 
+        out = after;
     end
 end

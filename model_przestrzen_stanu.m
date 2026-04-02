@@ -1,9 +1,7 @@
 clear; clc; close all;
 if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
 
-% ==========================================
-% PARAMETRY
-% ==========================================
+%% Parametry
 p.q = 10^6;
 p.q_c = 10^6;
 p.c_p = 1;
@@ -14,22 +12,15 @@ p.h = 130*10^6;
 p.a = 1.678*10^6;
 p.b = 0.5;
 
-% punkt pracy
 p.F = 1;
 p.F_in = 1;
 p.V = 1;
 
-% ==============================================
-% WARUNKI POCZĄTKOWE
-% ==============================================
+%% Warunki poczatkowe
+y0   = [0.26 393.9];
+u0   = [2 15 323 365];
 
-y0   = [0.26 393.9]; % zmienne stanu (Ca, T) w pp
-u0   = [2 15 323 365]; % sterowania (Cain, Fc) i zaklocenia (Tin, Tcin) w pp  
-
-%% ============================================================
-%  PUNKT 1a: Model liniowy ciagly (przestrzen stanow + transmitancje)
-% =============================================================
-
+%% Model liniowy ciagly
 A = jacobian_A(y0,u0,p);
 B = jacobian_B(y0,u0,p);
 C_mat = eye(2);
@@ -37,9 +28,8 @@ D_mat = zeros(2,4);
 
 sys_c = ss(A, B, C_mat, D_mat);
 
-% --- Wyswietlenie macierzy i transmitancji ---
 fprintf('========================================\n');
-fprintf('  MODEL CIAGLY (LTI)\n');
+fprintf('  MODEL CIAGLY\n');
 fprintf('========================================\n');
 fprintf('A =\n'); disp(A);
 fprintf('B =\n'); disp(B);
@@ -53,7 +43,7 @@ fprintf('Transmitancje ciagle G(s):\n');
 G_c = tf(sys_c);
 G_c
 
-% --- Wykres 1a-1: Odpowiedzi skokowe - przestrzen stanow ---
+%% Odpowiedzi skokowe - przestrzen stanow
 t_sim = linspace(0, 20, 5000);
 in_names  = {'C_{Ain}', 'F_C', 'T_{in}', 'T_{Cin}'};
 colors_in = {'b', [0 0.6 0], 'r', [0.6 0 0.6]};
@@ -86,7 +76,7 @@ legend(leg_ss, 'Location','best', 'FontSize', 8); grid on;
 sgtitle('Model liniowy - przestrzen stanow (punkt 1a)');
 exportgraphics(gcf, 'wykresy/1a_przestrzen_stanow.pdf', 'ContentType', 'vector');
 
-% --- Wykres 1a-2: Odpowiedzi skokowe - transmitancje ---
+%% Odpowiedzi skokowe - transmitancje
 figure('Name','1a - Transmitancje','NumberTitle','off', ...
     'Position',[50 50 1000 500]);
 
@@ -111,16 +101,12 @@ legend(leg_ss, 'Location','best', 'FontSize', 8); grid on;
 sgtitle('Model liniowy - transmitancje G(s) (punkt 1a)');
 exportgraphics(gcf, 'wykresy/1a_transmitancje.pdf', 'ContentType', 'vector');
 
-%% ============================================================
-%  Model LTI dyskretny - porownanie roznych Tp (jakosc dyskretyzacji)
-% =============================================================
-
+%% Jakosc dyskretyzacji - rozne Tp
 Tp_test = [0.01, 0.05, 0.1, 0.5];
 t_fine = linspace(0, 20, 5000);
 colors_tp = {'r--', 'g-.', 'm-', 'k--'};
 
-% Odpowiedzi skokowe: ciagly vs dyskretny dla roznych Tp
-% Testujemy skok CAin=+1 (wejscie 1)
+% Skok CAin = +1
 du_step = zeros(length(t_fine), 4);
 du_step(:, 1) = 1;
 [y_c_step, ~] = lsim(sys_c, du_step, t_fine);
@@ -157,7 +143,7 @@ grid on;
 sgtitle('Jakosc dyskretyzacji (ZOH) - skok C_{Ain} = +1');
 exportgraphics(gcf, 'wykresy/1d_dyskretyzacja_CAin.pdf', 'ContentType', 'vector');
 
-% Testujemy skok FC=+1 (wejscie 2)
+% Skok FC = +1
 du_step2 = zeros(length(t_fine), 4);
 du_step2(:, 2) = 1;
 [y_c_step2, ~] = lsim(sys_c, du_step2, t_fine);
@@ -194,7 +180,7 @@ grid on;
 sgtitle('Jakosc dyskretyzacji (ZOH) - skok F_C = +1');
 exportgraphics(gcf, 'wykresy/1d_dyskretyzacja_FC.pdf', 'ContentType', 'vector');
 
-%% Wybrany Tp = 0.1 - macierze i transmitancje
+%% Model dyskretny Tp = 0.1
 Ts = 0.1;
 sys_d = c2d(sys_c, Ts, 'zoh');
 [Ad, Bd, Cd, Dd] = ssdata(sys_d);
@@ -213,7 +199,7 @@ fprintf('  z2 = %.6f + %.6fi  (|z2| = %.6f)\n', real(eig_d(2)), imag(eig_d(2)), 
 fprintf('\nTransmitancje dyskretne:\n');
 Gz = tf(sys_d)
 
-%% Symulacja modelu dyskretnego (lsim)
+%% Symulacja modelu dyskretnego
 t_dysk = (0:Ts:20)';
 du_dysk = zeros(length(t_dysk),4);
 step_time = 10;
@@ -237,67 +223,49 @@ grid on;
 sgtitle(sprintf('Symulacja modelu dyskretnego (Tp = %.2f min, lsim)', Ts));
 exportgraphics(gcf, 'wykresy/1d_model_dyskretny.pdf', 'ContentType', 'vector');
 
-% ==============================================
-% JACOBIAN Macierzy A oraz B
-% ==============================================
+%%
+
 function A = jacobian_A(x,u,p)
-
-x1 = x(1); % C_A
-x2 = x(2); % T
-
+x1 = x(1);
+x2 = x(2);
 u2 = u(2);
 
 exp_term = exp(-p.E_R/x2);
-
 K = (p.a*u2^(p.b+1)) / (u2 + (p.a*u2^p.b)/(2*p.q*p.c_pc));
 
 A = zeros(2,2);
-
 A(1,1) = -p.F/p.V - p.k0*exp_term;
 A(1,2) = -p.k0*x1*exp_term*(p.E_R/x2^2);
 A(2,1) = (p.h*p.k0/(p.q*p.c_p))*exp_term;
 A(2,2) = -p.F/p.V ...
     + (p.h*p.k0/(p.q*p.c_p))*x1*exp_term*(p.E_R/x2^2) ...
     - K/(p.V*p.q*p.c_p);
-
 end
 
 function B = jacobian_B(x,u,p)
-
-x1 = x(1); % C_A
-x2 = x(2); % T
-
+x1 = x(1);
+x2 = x(2);
 u1 = u(1);
 u2 = u(2);
-
 z1 = u(3);
 z2 = u(4);
 
 exp_term = exp(-p.E_R/x2);
-
-% K (to samo co w modelu)
 K = (p.a*u2^(p.b+1)) / (u2 + (p.a*u2^p.b)/(2*p.q*p.c_pc));
 
-% Pochodna dK/du2
 N  = p.a * u2^(p.b+1);
 D  = u2 + (p.a*u2^p.b)/(2*p.q*p.c_pc);
-
 dN = p.a * (p.b+1) * u2^p.b;
 dD = 1 + (p.a*p.b*u2^(p.b-1))/(2*p.q*p.c_pc);
 dK = (dN*D - N*dD) / (D^2);
 
-% Macierz B (2x4: [u1 u2 u3 u4]) (u3 = z1, u4 = z2)
 B = zeros(2,4);
-
-% Pochodne z pierwszego rownania
-B(1,1) = p.F_in / p.V;   % df1/du1
-B(1,2) = 0;              % df1/du2
-B(1,3) = 0;              % df1/dz1
-B(1,4) = 0;              % df1/dz2
-
-% Pochodne z drugiego rownania
-B(2,1) = 0; % df2/du1
-B(2,2) = -(x2 - z2)/(p.V*p.q*p.c_p) * dK; % df2/du2
-B(2,3) = p.F_in / p.V; % df2/du3
-B(2,4) = K / (p.V*p.q*p.c_p); % df2/du4
+B(1,1) = p.F_in / p.V;
+B(1,2) = 0;
+B(1,3) = 0;
+B(1,4) = 0;
+B(2,1) = 0;
+B(2,2) = -(x2 - z2)/(p.V*p.q*p.c_p) * dK;
+B(2,3) = p.F_in / p.V;
+B(2,4) = K / (p.V*p.q*p.c_p);
 end

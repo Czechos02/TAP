@@ -1,35 +1,28 @@
 clear; clc; close all;
 if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
 
-% ==========================================================
-% PUNKT 1c: Dyskusja jakosci przyblizenia liniowego
-%   - RMSE dla roznych amplitud skokow kazdego wejscia
-%   - Tabelka w konsoli + generacja LaTeX
-% ==========================================================
-
-%% PARAMETRY
+%% Parametry
 p.q = 1e6;  p.q_c = 1e6;
 p.c_p = 1;  p.c_pc = 1;
 p.k0 = 1e10; p.E_R = 8330.1;
 p.h = 130e6; p.a = 1.678e6; p.b = 0.5;
 p.V = 1; p.F = 1; p.F_in = 1;
 
-%% PUNKT PRACY
+%% Punkt pracy
 x0 = [0.26, 393.9];
 u0 = [2, 15, 323, 365];
 
-%% LINEARYZACJA
+%% Linearyzacja
 A = jacobian_A(x0, u0, p);
 B = jacobian_B(x0, u0, p);
 sys_lin = ss(A, B, eye(2), zeros(2,4));
 
-%% KONFIGURACJA
+%% Konfiguracja
 sim_end = 20;
 step_time = 5;
 opts = odeset('RelTol',1e-8, 'AbsTol',1e-10, 'MaxStep',0.01);
 t_lin = (0:0.01:sim_end)';
 
-% Amplitudy do przetestowania
 amps_all = {
     [-0.5, -0.2, -0.1, -0.05, +0.05, +0.1, +0.2, +0.5],  ... % CAin
     [-5, -2, -1, -0.5, +0.5, +1, +2, +5],                  ... % FC
@@ -41,10 +34,7 @@ input_names     = {'C_{Ain}', 'F_C', 'T_{in}', 'T_{Cin}'};
 input_names_tex = {'$C_{Ain}$', '$F_C$', '$T_{in}$', '$T_{Cin}$'};
 input_units     = {'kmol/m^3', 'm^3/min', 'K', 'K'};
 
-%% ============================================================
-%  OBLICZENIE RMSE DLA KAZDEGO WEJSCIA I AMPLITUDY
-% =============================================================
-
+%% Obliczenie RMSE
 results = struct();
 
 for inp = 1:4
@@ -57,7 +47,6 @@ for inp = 1:4
     for s = 1:n
         amp = amps(s);
 
-        % --- Nieliniowy ---
         u_funs = cell(1,4);
         for j = 1:4
             if j == inp
@@ -73,17 +62,14 @@ for inp = 1:4
             u_funs{1}, u_funs{2}, u_funs{3}, u_funs{4}, p), ...
             [0 sim_end], x0, opts);
 
-        % --- Liniowy ---
         du = zeros(length(t_lin), 4);
         du(t_lin >= step_time, inp) = amp;
         [y_lin_out, ~] = lsim(sys_lin, du, t_lin);
         y_lin_out(:,1) = y_lin_out(:,1) + x0(1);
         y_lin_out(:,2) = y_lin_out(:,2) + x0(2);
 
-        % Interpolacja NL na siatke LIN
         Y_nl_interp = interp1(t_nl, Y_nl, t_lin, 'linear', 'extrap');
 
-        % RMSE (tylko po skoku)
         idx = t_lin >= step_time;
         e_CA = Y_nl_interp(idx, 1) - y_lin_out(idx, 1);
         e_T  = Y_nl_interp(idx, 2) - y_lin_out(idx, 2);
@@ -97,10 +83,7 @@ for inp = 1:4
     results(inp).rmse_T  = rmse_T;
 end
 
-%% ============================================================
-%  ZAPIS WYNIKOW DO CSV (do odczytu)
-% =============================================================
-
+%% Zapis do CSV
 fid_csv = fopen('wyniki_1c.csv', 'w');
 fprintf(fid_csv, 'input,amplitude,rmse_CA,rmse_T\n');
 for inp = 1:4
@@ -113,10 +96,7 @@ end
 fclose(fid_csv);
 fprintf('Wyniki zapisane do: wyniki_1c.csv\n');
 
-%% ============================================================
-%  WYDRUK TABELEK W KONSOLI
-% =============================================================
-
+%% Wydruk tabelek w konsoli
 fprintf('\n');
 for inp = 1:4
     fprintf('=== Skok %s [%s] ===\n', input_names{inp}, input_units{inp});
@@ -131,14 +111,10 @@ for inp = 1:4
     fprintf('\n');
 end
 
-%% ============================================================
-%  GENERACJA TABELEK LATEX (zapis do pliku)
-% =============================================================
-
+%% Generacja tabelek LaTeX
 fid = fopen('tabele_1c.tex', 'w');
 
 for inp = 1:4
-    fprintf(fid, '%% --- Tabela: skok %s ---\n', input_names{inp});
     fprintf(fid, '\\begin{table}[H]\n\\centering\n');
     fprintf(fid, '\\caption{RMSE aproksymacji liniowej -- skok %s}\n', input_names_tex{inp});
     fprintf(fid, '\\label{tab:1c_%d}\n', inp);
@@ -153,7 +129,6 @@ for inp = 1:4
         r_ca = results(inp).rmse_CA(s);
         r_t  = results(inp).rmse_T(s);
 
-        % Formatowanie: naukowe dla bardzo malych, zwykle dla wiekszych
         if r_ca < 0.001
             str_ca = sprintf('%.2e', r_ca);
         else
@@ -176,9 +151,7 @@ end
 fclose(fid);
 fprintf('Tabelki LaTeX zapisane do: tabele_1c.tex\n');
 
-%% ============================================================
-%  FUNKCJE LOKALNE
-% =============================================================
+%%
 
 function dy = model_nl(t, y, u1, u2, z1, z2, p)
     C_Ain = u1(t); F_C = u2(t); T_in = z1(t); T_Cin = z2(t);

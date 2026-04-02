@@ -1,8 +1,6 @@
 clear; clc; close all;
 
-%  ==========================================
-% PARAMETRY 
-% ===========================================
+%% Parametry
 q = 10^6;
 q_c = 10^6;
 c_p = 1;
@@ -13,7 +11,6 @@ h = 130*10^6;
 a = 1.678*10^6;
 b = 0.5;
 
-% punkt pracy
 F = 1;
 F_in = 1;
 V = 1;
@@ -43,26 +40,13 @@ p.A = [p.p12 + p.p13*exp(p.p14/p.T_0), (-p.p14/p.T_0^2)*p.p13*p.C_A_0*exp(p.p14/
 p.B = [p.p11, 0, 0, 0;
     0, (p.T_0-p.T_Cin0)*(p.p25*p.F_C0^(1-b)+p.p26-(1-b)*p.F_C0*p.p25*p.F_C0^(-b))/((p.p25*p.F_C0^(1-p.b)+p.p26)^2), p.p21,(-p.F_C0)/(p.p25*p.F_C0^(1-b)+p.p26)];
 
-% ==============================================
-% WARUNKI POCZĄTKOWE
-% ==============================================
-
-% y(1) -> C_A
-% y(2) -> T
-% u(1) -> C_Ain
-% u(2) -> F_C
-% u(3) -> T_in
-% u(4) -> T_Cin
-
+%% Warunki poczatkowe
 y0   = [0.26 393.9];
-u0   = [2 15 323 365]; 
+u0   = [2 15 323 365];
 sim_end = 20;
-sim_time = [0, sim_end];      
+sim_time = [0, sim_end];
 
-% ==============================================
-%  SYMULACJA
-% ==============================================
-
+%% Symulacja
 u1_step = 0.5;
 u2_step = 0;
 z1_step = 0;
@@ -85,23 +69,20 @@ opts = odeset('RelTol', 1e-6, 'AbsTol', 1e-8, 'MaxStep', 0.01);
 
 Y_lin = Y_lin + y0;
 
-y1 = Y(:,1);             % np. y1 = x1
-y2 = Y(:,2);             % np. y2 = x2
-
-y1_lin = Y_lin(:,1);             % np. y1 = x1
-y2_lin = Y_lin(:,2);             % np. y2 = x2
+y1 = Y(:,1);
+y2 = Y(:,2);
+y1_lin = Y_lin(:,1);
+y2_lin = Y_lin(:,2);
 
 U1 = arrayfun(u1_lin, t);
 U2 = arrayfun(u2_lin, t);
 Z1 = arrayfun(z1_lin, t);
 Z2 = arrayfun(z2_lin, t);
 
-% ==============================================
-% SYMULACJA TRANSMITANCJI MIMO
-% ==============================================
+%% Symulacja transmitancji
 s = tf('s');
 
-G_u = tf(ss(p.A,p.B,eye(2),0));   % transmitancja dla wejść sterujących
+G_u = tf(ss(p.A,p.B,eye(2),0));
 
 t_tr = 0:0.01:sim_end;
 
@@ -109,18 +90,12 @@ U1_tr = arrayfun(u1_lin, t_tr);
 U2_tr = arrayfun(u2_lin, t_tr);
 Z1_tr = arrayfun(z1_lin, t_tr);
 Z2_tr = arrayfun(z2_lin, t_tr);
-% odpowiedź na wymuszenia
 
 Y_u = lsim(G_u,[U1_tr;U2_tr;Z1_tr;Z2_tr],t_tr);
-
-% wyraz wolny + punkt pracy
 Y_tr = Y_u + y0;
 
-% ==============================================
-% WYKRESY
-% ==============================================
-
-figure('Name','Symulacja nieliniowa 2×2','NumberTitle','off', ...
+%% Wykresy
+figure('Name','Symulacja nieliniowa 2x2','NumberTitle','off', ...
        'Position',[100 100 900 700]);
 
 subplot(3,2,1);
@@ -129,7 +104,7 @@ hold on
 plot(t_lin, y1_lin, 'r', 'LineWidth', 1.5);
 plot(t_tr, Y_tr(:,1),'g--','LineWidth',1.5);
 hold off
-xlabel('t [s]'); ylabel('y_1'); title('Wyjście y_1');
+xlabel('t [s]'); ylabel('y_1'); title('Wyjscie y_1');
 grid on;
 
 subplot(3,2,2);
@@ -138,7 +113,7 @@ hold on
 plot(t_lin, y2_lin, 'r', 'LineWidth', 1.5);
 plot(t_tr, Y_tr(:,2),'g--','LineWidth',1.5);
 hold off
-xlabel('t [s]'); ylabel('y_2'); title('Wyjście y_2');
+xlabel('t [s]'); ylabel('y_2'); title('Wyjscie y_2');
 grid on;
 
 subplot(3,2,3);
@@ -153,19 +128,21 @@ grid on;
 
 subplot(3,2,5);
 plot(t, Z1, 'w', 'LineWidth', 1.5);
-xlabel('t [s]'); ylabel('z_1'); title('Zakłócenie z_1(t)');
+xlabel('t [s]'); ylabel('z_1'); title('Zaklocenie z_1(t)');
 grid on;
 
 subplot(3,2,6);
 plot(t, Z2, 'w', 'LineWidth', 1.5);
-xlabel('t [s]'); ylabel('z_2'); title('Zakłócenie z_2(t)');
+xlabel('t [s]'); ylabel('z_2'); title('Zaklocenie z_2(t)');
 grid on;
 
-sgtitle('Symulacja modelu nieliniowego 2 wejścia / 2 wyjścia');
+sgtitle('Symulacja modelu nieliniowego 2 wejscia / 2 wyjscia');
 
-% ==============================================
-%  FUNKCJA
-% ==============================================
+%% Weryfikacja
+weryfikacja_1b(p, y0, u0, sim_end);
+
+%%
+
 function dy_dt = model_nl(t, y, u1, u2, z1, z2, p)
 
 C_Ain = u1(t);
@@ -181,7 +158,7 @@ dy_dt = [
     p.p21*T_in ...
     + p.p22*y(2) ...
     + p.p23*exp(p.p24/y(2))*y(1) ...
-    + (y(2)-T_Cin)*F_C/(p.p25*((F_C)^(1-p.b))+p.p26); 
+    + (y(2)-T_Cin)*F_C/(p.p25*((F_C)^(1-p.b))+p.p26);
 ];
 
 end
@@ -202,8 +179,88 @@ end
 
 function out = step_function(t, before, after, step_time)
     if t < step_time
-        out = before; 
+        out = before;
     else
-        out = after; 
+        out = after;
     end
+end
+
+%%
+
+function weryfikacja_1b(p, y0, u0, sim_end)
+
+    if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
+
+    fprintf('\n=== WERYFIKACJA MACIERZY ===\n');
+    fprintf('A (model_zlinearyzowany) =\n'); disp(p.A);
+    fprintf('B (model_zlinearyzowany) =\n'); disp(p.B);
+
+    sys_lin = ss(p.A, p.B, eye(2), zeros(2,4));
+    opts = odeset('RelTol',1e-8, 'AbsTol',1e-10, 'MaxStep',0.01);
+    step_time = 5;
+    t_lin = (0:0.01:sim_end)';
+
+    amps_all = {
+        [-0.1, -0.5, +0.1, +0.5],
+        [-1,   -5,   +1,   +5],
+        [-2,   -10,  +2,   +10],
+        [-2,   -10,  +2,   +10]
+    };
+
+    input_names = {'C_{Ain}', 'F_C', 'T_{in}', 'T_{Cin}'};
+    input_units = {'kmol/m^3', 'm^3/min', 'K', 'K'};
+    input_short = {'CAin', 'FC', 'Tin', 'TCin'};
+
+    for inp = 1:4
+        amps = amps_all{inp};
+        for ai = 1:length(amps)
+            amp = amps(ai);
+
+            u1 = @(t) u0(1) + (inp==1)*amp*(t>=step_time);
+            u2 = @(t) u0(2) + (inp==2)*amp*(t>=step_time);
+            z1 = @(t) u0(3) + (inp==3)*amp*(t>=step_time);
+            z2 = @(t) u0(4) + (inp==4)*amp*(t>=step_time);
+
+            [t_nl, Y_nl] = ode15s(@(t,y) model_nl(t,y,u1,u2,z1,z2,p), ...
+                [0 sim_end], y0, opts);
+
+            du = zeros(length(t_lin), 4);
+            du(t_lin >= step_time, inp) = amp;
+            [y_l, ~] = lsim(sys_lin, du, t_lin);
+            y_l(:,1) = y_l(:,1) + y0(1);
+            y_l(:,2) = y_l(:,2) + y0(2);
+
+            figure('Name', sprintf('WERYFIKACJA %s=%+g', input_short{inp}, amp), ...
+                'NumberTitle','off', 'Position',[50 50 900 400]);
+
+            subplot(1,2,1);
+            plot(t_nl, Y_nl(:,1), 'b-', 'LineWidth', 2); hold on;
+            plot(t_lin, y_l(:,1), 'r--', 'LineWidth', 1.5);
+            xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
+            xlabel('t [min]'); ylabel('C_A [kmol/m^3]');
+            title('C_A'); legend('nieliniowy','liniowy','Location','best');
+            grid on;
+
+            subplot(1,2,2);
+            plot(t_nl, Y_nl(:,2), 'b-', 'LineWidth', 2); hold on;
+            plot(t_lin, y_l(:,2), 'r--', 'LineWidth', 1.5);
+            xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
+            xlabel('t [min]'); ylabel('T [K]');
+            title('T'); legend('nieliniowy','liniowy','Location','best');
+            grid on;
+
+            sgtitle(sprintf('[model\\_zlinearyzowany] Skok %s = %+g %s', ...
+                input_names{inp}, amp, input_units{inp}));
+
+            if amp >= 0
+                amp_str = sprintf('p%.4g', amp);
+            else
+                amp_str = sprintf('m%.4g', abs(amp));
+            end
+            fname = sprintf('wykresy/weryfikacja_%s_%s.pdf', input_short{inp}, amp_str);
+            exportgraphics(gcf, fname, 'ContentType', 'vector');
+            close(gcf);
+        end
+    end
+    fprintf('Wygenerowano wykresy weryfikacyjne w wykresy/weryfikacja_*.pdf\n');
 end

@@ -1,24 +1,17 @@
 clear; clc; close all;
 
-% ==========================================================
-% PUNKT 1d: Modele liniowe dyskretne
-%   - Rownania stanu i transmitancje dyskretne
-%   - Porownanie jakosci dyskretyzacji (rozne Tp)
-%   - Implementacja modelu dyskretnego w petli
-% ==========================================================
-
-%% PARAMETRY
+%% Parametry
 p.q = 1e6;  p.q_c = 1e6;
 p.c_p = 1;  p.c_pc = 1;
 p.k0 = 1e10; p.E_R = 8330.1;
 p.h = 130e6; p.a = 1.678e6; p.b = 0.5;
 p.V = 1; p.F = 1; p.F_in = 1;
 
-%% PUNKT PRACY
+%% Punkt pracy
 x0 = [0.26, 393.9];
 u0 = [2, 15, 323, 365];
 
-%% MODEL CIAGLY (linearyzacja)
+%% Model ciagly
 A = jacobian_A(x0, u0, p);
 B = jacobian_B(x0, u0, p);
 C_mat = eye(2);
@@ -41,10 +34,7 @@ fprintf('Transmitancje ciagle G(s):\n');
 G_c = tf(sys_c);
 G_c
 
-%% ============================================================
-%  DYSKRETYZACJA - rozne okresy probkowania
-% =============================================================
-
+%% Dyskretyzacja - rozne Tp
 Tp_test = [0.01, 0.05, 0.1, 0.5];
 
 for i = 1:length(Tp_test)
@@ -68,11 +58,7 @@ for i = 1:length(Tp_test)
     G_d
 end
 
-%% ============================================================
-%  POROWNANIE JAKOSCI DYSKRETYZACJI
-%  Odpowiedzi skokowe: ciagly vs dyskretny (rozne Tp)
-% =============================================================
-
+%% Porownanie jakosci dyskretyzacji
 t_end = 20;
 t_fine = linspace(0, t_end, 5000);
 
@@ -80,13 +66,11 @@ in_names  = {'C_{Ain}', 'F_C', 'T_{in}', 'T_{Cin}'};
 out_names = {'C_A', 'T'};
 colors    = {'r--', 'g-.', 'm-', 'k--'};
 
-% --- Sterowania (CAin, FC) ---
 figure('Name','Jakosc dyskretyzacji - sterowania', ...
     'NumberTitle','off', 'Position',[50 50 1200 700]);
 
 idx = 0;
-for in_i = 1:2  % CAin, FC
-    % Odpowiedz ciagla
+for in_i = 1:2
     du_c = zeros(length(t_fine), 4);
     du_c(:, in_i) = 1;
     [y_c, ~] = lsim(sys_c, du_c, t_fine);
@@ -117,12 +101,11 @@ for in_i = 1:2  % CAin, FC
 end
 sgtitle('Jakosc dyskretyzacji (ZOH) - sterowania');
 
-% --- Zaklocenia (Tin, TCin) ---
 figure('Name','Jakosc dyskretyzacji - zaklocenia', ...
     'NumberTitle','off', 'Position',[100 100 1200 700]);
 
 idx = 0;
-for in_i = 3:4  % Tin, TCin
+for in_i = 3:4
     du_c = zeros(length(t_fine), 4);
     du_c(:, in_i) = 1;
     [y_c, ~] = lsim(sys_c, du_c, t_fine);
@@ -153,10 +136,7 @@ for in_i = 3:4  % Tin, TCin
 end
 sgtitle('Jakosc dyskretyzacji (ZOH) - zaklocenia');
 
-%% ============================================================
-%  WYBRANY MODEL DYSKRETNY (Tp = 0.1 min)
-% =============================================================
-
+%% Wybrany model dyskretny Tp = 0.1
 Tp = 0.1;
 sys_d_final = c2d(sys_c, Tp, 'zoh');
 [Ad, Bd, Cd, Dd] = ssdata(sys_d_final);
@@ -172,51 +152,66 @@ fprintf('Transmitancje dyskretne (Tp = %.2f min):\n', Tp);
 G_d_final = tf(sys_d_final);
 G_d_final
 
-%% ============================================================
-%  WERYFIKACJA: dyskretny (lsim) vs nieliniowy (ode15s)
-% =============================================================
-
-t_d_lsim = (0:Tp:t_end)';
-du_lsim = zeros(length(t_d_lsim), 4);
-du_lsim(50:end, 1) = 0.1;   % skok dCAin=+0.1 w k=50
-du_lsim(100:end, 2) = 1.0;  % skok dFC=+1 w k=100
-[y_lsim, ~] = lsim(sys_d_final, du_lsim, t_d_lsim);
-
-% Nieliniowy z tym samym scenariuszem
-t_step1 = 50 * Tp;
-t_step2 = 100 * Tp;
-u_funs = {@(t) u0(1) + 0.1*(t>=t_step1), ...
-          @(t) u0(2) + 1.0*(t>=t_step2), ...
-          @(t) u0(3), @(t) u0(4)};
+%% Weryfikacja: NL vs LIN vs dyskretny
+if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
 
 opts_nl = odeset('RelTol',1e-8, 'AbsTol',1e-10, 'MaxStep',0.01);
-[t_nl, Y_nl] = ode15s(@(t,y) model_nl(t, y, ...
-    u_funs{1}, u_funs{2}, u_funs{3}, u_funs{4}, p), ...
-    [0, t_end], x0, opts_nl);
+step_time = 5;
+t_lin = (0:0.01:t_end)';
+t_d = (0:Tp:t_end)';
 
-figure('Name','Weryfikacja: dyskretny vs nieliniowy', ...
-    'NumberTitle','off', 'Position',[150 50 1000 500]);
+test_skoki = {1, +0.1; 2, +1};
+input_names_w = {'C_{Ain}', 'F_C'};
+input_short_w = {'CAin', 'FC'};
 
-subplot(1,2,1);
-plot(t_nl, Y_nl(:,1), 'b-', 'LineWidth', 2); hold on;
-stairs(t_d_lsim, y_lsim(:,1) + x0(1), 'r--', 'LineWidth', 1.5);
-xlabel('t [min]'); ylabel('C_A [kmol/m^3]'); title('C_A');
-legend('nieliniowy', 'dyskretny (lsim)', 'Location','best');
-grid on;
+for ti = 1:size(test_skoki, 1)
+    inp = test_skoki{ti, 1};
+    amp = test_skoki{ti, 2};
 
-subplot(1,2,2);
-plot(t_nl, Y_nl(:,2), 'b-', 'LineWidth', 2); hold on;
-stairs(t_d_lsim, y_lsim(:,2) + x0(2), 'r--', 'LineWidth', 1.5);
-xlabel('t [min]'); ylabel('T [K]'); title('T');
-legend('nieliniowy', 'dyskretny (lsim)', 'Location','best');
-grid on;
+    u_funs = {@(t) u0(1), @(t) u0(2), @(t) u0(3), @(t) u0(4)};
+    u_funs{inp} = @(t) u0(inp) + amp*(t >= step_time);
+    [t_nl, Y_nl] = ode15s(@(t,y) model_nl(t,y, ...
+        u_funs{1},u_funs{2},u_funs{3},u_funs{4},p), ...
+        [0 t_end], x0, opts_nl);
 
-sgtitle(sprintf('Weryfikacja: nieliniowy vs dyskretny (Tp = %.2f min)', Tp));
-exportgraphics(gcf, 'wykresy/1d_weryfikacja.pdf', 'ContentType', 'vector');
+    du_c = zeros(length(t_lin), 4);
+    du_c(t_lin >= step_time, inp) = amp;
+    [y_lin, ~] = lsim(sys_c, du_c, t_lin);
+    y_lin = y_lin + x0;
 
-%% ============================================================
-%  FUNKCJE LOKALNE
-% =============================================================
+    du_d = zeros(length(t_d), 4);
+    du_d(t_d >= step_time, inp) = amp;
+    [y_disc, ~] = lsim(sys_d_final, du_d, t_d);
+    y_disc = y_disc + x0;
+
+    figure('Name', sprintf('1d weryfikacja %s=%+g', input_short_w{ti}, amp), ...
+        'NumberTitle','off', 'Position',[50 50 900 400]);
+
+    subplot(1,2,1);
+    plot(t_nl, Y_nl(:,1), 'b-', 'LineWidth', 2); hold on;
+    plot(t_lin, y_lin(:,1), 'r--', 'LineWidth', 1.5);
+    stairs(t_d, y_disc(:,1), 'g-.', 'LineWidth', 1.2);
+    xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
+    xlabel('t [min]'); ylabel('C_A [kmol/m^3]'); title('C_A');
+    legend('nieliniowy','liniowy','dyskretny','Location','best');
+    grid on;
+
+    subplot(1,2,2);
+    plot(t_nl, Y_nl(:,2), 'b-', 'LineWidth', 2); hold on;
+    plot(t_lin, y_lin(:,2), 'r--', 'LineWidth', 1.5);
+    stairs(t_d, y_disc(:,2), 'g-.', 'LineWidth', 1.2);
+    xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
+    xlabel('t [min]'); ylabel('T [K]'); title('T');
+    legend('nieliniowy','liniowy','dyskretny','Location','best');
+    grid on;
+
+    sgtitle(sprintf('NL vs LIN vs dyskretny (Tp=%.1f min) -- skok %s = %+g', ...
+        Tp, input_names_w{ti}, amp));
+    exportgraphics(gcf, sprintf('wykresy/1d_weryfikacja_%s.pdf', input_short_w{ti}), ...
+        'ContentType', 'vector');
+end
+
+%%
 
 function dy = model_nl(t, y, u1, u2, z1, z2, p)
     C_Ain = u1(t); F_C = u2(t); T_in = z1(t); T_Cin = z2(t);
