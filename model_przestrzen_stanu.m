@@ -1,24 +1,8 @@
 clear; clc; close all;
 if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
 
-%% Parametry
-p.q = 10^6;
-p.q_c = 10^6;
-p.c_p = 1;
-p.c_pc = 1;
-p.k0 = 10^10;
-p.E_R = 8330.1;
-p.h = 130*10^6;
-p.a = 1.678*10^6;
-p.b = 0.5;
-
-p.F = 1;
-p.F_in = 1;
-p.V = 1;
-
-%% Warunki poczatkowe
-y0   = [0.26 393.9];
-u0   = [2 15 323 365];
+%% Punkt pracy
+[y0, u0, p] = punkt_pracy();
 
 %% Model liniowy ciagly
 A = jacobian_A(y0,u0,p);

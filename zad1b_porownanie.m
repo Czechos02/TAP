@@ -1,45 +1,52 @@
-
 clear; clc; close all;
 if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
 
-%% Parametry
-p.q = 1e6;  p.q_c = 1e6;
-p.c_p = 1;  p.c_pc = 1;
-p.k0 = 1e10; p.E_R = 8330.1;
-p.h = 130e6; p.a = 1.678e6; p.b = 0.5;
-p.V = 1; p.F = 1; p.F_in = 1;
-
 %% Punkt pracy
-x0 = [0.26, 393.9];
-u0 = [2, 15, 323, 365];
+[x0, u0, p] = punkt_pracy();
 
 %% Linearyzacja
 A = jacobian_A(x0, u0, p);
 B = jacobian_B(x0, u0, p);
 sys_lin = ss(A, B, eye(2), zeros(2,4));
 
-%% Symulacja
+%% Konfiguracja
 opts = odeset('RelTol',1e-8, 'AbsTol',1e-10, 'MaxStep',0.01);
 sim_end = 20;
 step_time = 5;
 t_lin = (0:0.01:sim_end)';
 
 amps_all = {
-    [-0.1, -0.5, +0.1, +0.5],      ... % CAin
-    [-1,   -5,   +1,   +5],        ... % FC
-    [-2,   -10,  +2,   +10],       ... % Tin
-    [-2,   -10,  +2,   +10]        ... % TCin
+    [-1, -0.5, -0.1, +0.1, +0.5, +1],      ... % CAin
+    [-10, -5, -1, +1, +5, +10],             ... % FC
+    [-20, -10, -2, +2, +10, +20],           ... % Tin
+    [-20, -10, -2, +2, +10, +20]            ... % TCin
 };
 
 input_names = {'C_{Ain}', 'F_C', 'T_{in}', 'T_{Cin}'};
 input_units = {'kmol/m^3', 'm^3/min', 'K', 'K'};
 input_short = {'CAin', 'FC', 'Tin', 'TCin'};
 
+colors = [
+    0.0  0.0  0.8;
+    0.2  0.5  1.0;
+    0.0  0.7  0.3;
+    0.9  0.7  0.0;
+    1.0  0.4  0.0;
+    0.8  0.0  0.0;
+];
+
+%% Fan-ploty
 for inp = 1:4
     amps = amps_all{inp};
 
+    figure('Name', sprintf('1b - %s', input_short{inp}), ...
+        'NumberTitle','off', 'Position',[50 50 1000 500]);
+
+    leg_entries = {};
+
     for ai = 1:length(amps)
         amp = amps(ai);
+        col = colors(ai, :);
 
         u_funs = cell(1,4);
         for j = 1:4
@@ -62,41 +69,35 @@ for inp = 1:4
         y_lin(:,1) = y_lin(:,1) + x0(1);
         y_lin(:,2) = y_lin(:,2) + x0(2);
 
-        figure('Name', sprintf('%s = %+g', input_short{inp}, amp), ...
-            'NumberTitle','off', 'Position',[50 50 900 400]);
+        subplot(1,2,1); hold on;
+        plot(t_nl, Y_nl(:,1), '-', 'Color', col, 'LineWidth', 1.5);
+        plot(t_lin, y_lin(:,1), '--', 'Color', col, 'LineWidth', 1.2);
 
-        subplot(1,2,1);
-        plot(t_nl, Y_nl(:,1), 'b-', 'LineWidth', 2); hold on;
-        plot(t_lin, y_lin(:,1), 'r--', 'LineWidth', 1.5);
-        xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
-        xlabel('t [min]'); ylabel('C_A [kmol/m^3]');
-        title('C_A'); legend('nieliniowy','liniowy','Location','best');
-        grid on;
+        subplot(1,2,2); hold on;
+        plot(t_nl, Y_nl(:,2), '-', 'Color', col, 'LineWidth', 1.5);
+        plot(t_lin, y_lin(:,2), '--', 'Color', col, 'LineWidth', 1.2);
 
-        subplot(1,2,2);
-        plot(t_nl, Y_nl(:,2), 'b-', 'LineWidth', 2); hold on;
-        plot(t_lin, y_lin(:,2), 'r--', 'LineWidth', 1.5);
-        xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
-        xlabel('t [min]'); ylabel('T [K]');
-        title('T'); legend('nieliniowy','liniowy','Location','best');
-        grid on;
-
-        sgtitle(sprintf('Skok %s = %+g %s', ...
-            input_names{inp}, amp, input_units{inp}));
-
-        if amp >= 0
-            amp_str = sprintf('p%.4g', amp);
-        else
-            amp_str = sprintf('m%.4g', abs(amp));
-        end
-        fname = sprintf('wykresy/1b_%s_%s.pdf', input_short{inp}, amp_str);
-        exportgraphics(gcf, fname, 'ContentType', 'vector');
-        close(gcf);
+        leg_entries{end+1} = sprintf('NL, \\Delta=%+g', amp);
+        leg_entries{end+1} = sprintf('LIN, \\Delta=%+g', amp);
     end
+
+    subplot(1,2,1);
+    xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
+    xlabel('t [min]'); ylabel('C_A [kmol/m^3]'); title('C_A');
+    legend(leg_entries, 'Location','best', 'FontSize', 6);
+    grid on;
+
+    subplot(1,2,2);
+    xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
+    xlabel('t [min]'); ylabel('T [K]'); title('T');
+    legend(leg_entries, 'Location','best', 'FontSize', 6);
+    grid on;
+
+    sgtitle(sprintf('NL vs LIN -- skoki %s [%s]', input_names{inp}, input_units{inp}));
+    exportgraphics(gcf, sprintf('wykresy/1b_%s.pdf', input_short{inp}), 'ContentType', 'vector');
 end
 
-fprintf('Wygenerowano %d wykresow.\n', ...
-    sum(cellfun(@length, amps_all)));
+fprintf('Wygenerowano 4 wykresy.\n');
 
 %%
 

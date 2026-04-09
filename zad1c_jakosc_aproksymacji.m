@@ -1,16 +1,8 @@
 clear; clc; close all;
 if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
 
-%% Parametry
-p.q = 1e6;  p.q_c = 1e6;
-p.c_p = 1;  p.c_pc = 1;
-p.k0 = 1e10; p.E_R = 8330.1;
-p.h = 130e6; p.a = 1.678e6; p.b = 0.5;
-p.V = 1; p.F = 1; p.F_in = 1;
-
 %% Punkt pracy
-x0 = [0.26, 393.9];
-u0 = [2, 15, 323, 365];
+[x0, u0, p] = punkt_pracy();
 
 %% Linearyzacja
 A = jacobian_A(x0, u0, p);

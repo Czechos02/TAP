@@ -105,12 +105,21 @@ $C_{Ain,0}$ & 2 kmol/m$^3$ & sterowanie \\
 $F_{C,0}$ & 15 m$^3$/min & sterowanie \\
 $T_{in,0}$ & 323 K & zakłócenie \\
 $T_{Cin,0}$ & 365 K & zakłócenie \\
-$C_{A,0}$ & 0{,}26 kmol/m$^3$ & wyjście \\
-$T_0$ & 393{,}9 K & wyjście \\
+$C_{A,0}$ & 0{,}2646 kmol/m$^3$ & wyjście \\
+$T_0$ & 393{,}95 K & wyjście \\
 \bottomrule
 \end{tabular}
 \caption{Punkt pracy}
 \end{table}
+
+\subsection{Wyznaczenie dokładnego punktu równowagi}
+
+Punkt równowagi wyznaczono numerycznie, rozwiązując układ równań $\dot{x} = 0$ przy zadanych wartościach wejść za pomocą funkcji \texttt{fsolve} w~MATLABie. Otrzymano:
+\begin{equation}
+    C_{A,0} = 0{,}2646 \text{ kmol/m}^3, \qquad T_0 = 393{,}95 \text{ K}
+\end{equation}
+
+Rezydua w~punkcie rozwiązania wynoszą $|dC_A/dt| \approx 10^{-15}$, $|dT/dt| \approx 10^{-14}$, co potwierdza dokładność wyznaczonego punktu. Wartości te różnią się nieznacznie od podanych w~treści zadania ($C_{A} = 0{,}26$, $T = 393{,}9$), które stanowiły jedynie przybliżenie. Wszystkie dalsze eksperymenty (linearyzacja, symulacje) przeprowadzono startując z~dokładnego punktu równowagi.
 
 % ==============================================================
 \section{Symulacja modelu nieliniowego}
@@ -205,28 +214,45 @@ gdzie:
     \end{bmatrix}
 \end{align}
 
-\subsection{Transmitancje ciągłe}
-
-Przekształcamy równania stanu do dziedziny Laplace'a:
-
+Po podstawieniu wartości liczbowych z~dokładnego punktu równowagi:
 \begin{align}
-    s\Delta X(s) = A\Delta X(s) + B\Delta U(s) \\
-    \Delta Y(s) = C\Delta X(s) + D  \Delta U(s)
+    A &= \begin{bmatrix}
+        -7{,}5594 & -0{,}0931 \\
+        852{,}7187 & 5{,}7674
+    \end{bmatrix}\\[10pt]
+    B &= \begin{bmatrix}
+        1 & 0 & 0 & 0 \\
+        0 & -6{,}0730 & 1 & 5{,}3417
+    \end{bmatrix}
 \end{align}
 
-Po przekształceniach otrzymujemy:
-
+Wartości własne macierzy $A$:
 \begin{equation}
-    Y(s) = G_u(s) U(s)
+    \lambda_{1,2} = -0{,}8960 \pm 5{,}9184\,j
 \end{equation}
 
-gdzie:
+Część rzeczywista jest ujemna, co potwierdza stabilność układu. Część urojona wskazuje na oscylacyjny charakter odpowiedzi.
+
+\subsection{Transmitancje ciągłe}
+
+Transmitancja macierzowa $G(s) = C(sI - A)^{-1}B$ ma wspólny mianownik:
+\begin{equation}
+    w(s) = s^2 + 1{,}792\,s + 35{,}83
+\end{equation}
+
+Poszczególne transmitancje:
 \begin{align}
-    G_u(s) &= (sI-A)^{-1}B \\
+    G_{C_A, C_{Ain}}(s) &= \frac{s - 5{,}767}{w(s)} &
+    G_{T, C_{Ain}}(s) &= \frac{852{,}7}{w(s)} \\[6pt]
+    G_{C_A, F_C}(s) &= \frac{0{,}5657}{w(s)} &
+    G_{T, F_C}(s) &= \frac{-6{,}073\,s - 45{,}91}{w(s)} \\[6pt]
+    G_{C_A, T_{in}}(s) &= \frac{-0{,}09315}{w(s)} &
+    G_{T, T_{in}}(s) &= \frac{s + 7{,}559}{w(s)} \\[6pt]
+    G_{C_A, T_{Cin}}(s) &= \frac{-0{,}4976}{w(s)} &
+    G_{T, T_{Cin}}(s) &= \frac{5{,}342\,s + 40{,}38}{w(s)}
 \end{align}
 
-
-\subsection{Implementacja w Matlabie}
+\subsection{Implementacja w~Matlabie}
 \begin{lstlisting}
 clear; clc; close all;
 
@@ -419,135 +445,44 @@ Rysunki \ref{fig:1a_ss} i~\ref{fig:1a_tf} przedstawiają odpowiedzi na skoki jed
 \section{Porównanie modeli liniowego i~nieliniowego}
 % ==============================================================
 
-W~celu oceny jakości przybliżenia liniowego przeprowadzono osobne symulacje skokowe dla każdego wejścia. Na każdym wykresie porównano odpowiedź modelu nieliniowego (linia ciągła niebieska) z~modelem liniowym (linia przerywana czerwona). Skok wartości sterowanianastępuje w~chwili $t = 5$ min.
-
-% --- CAin ---
+Dla każdego wejścia przeprowadzono serię symulacji skokowych o~różnych amplitudach (od małych do dużych). Na każdym rysunku porównano odpowiedzi modelu nieliniowego (linia ciągła) i~liniowego (linia przerywana) -- ten sam kolor oznacza tę samą amplitudę. Skok następuje w~chwili $t = 5$~min.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_CAin_m0.1.pdf}
-    \caption{Skok $\Delta C_{Ain} = -0{,}1$ kmol/m$^3$}
-    \label{fig:1b_cain_m01}
+    \includegraphics[width=0.95\textwidth]{wykresy/1b_CAin.pdf}
+    \caption{NL vs LIN -- skoki $C_{Ain}$ ($\Delta = \pm 0{,}1$, $\pm 0{,}5$, $\pm 1$ kmol/m$^3$)}
+    \label{fig:1b_cain}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_CAin_p0.1.pdf}
-    \caption{Skok $\Delta C_{Ain} = +0{,}1$ kmol/m$^3$}
-    \label{fig:1b_cain_p01}
+    \includegraphics[width=0.95\textwidth]{wykresy/1b_FC.pdf}
+    \caption{NL vs LIN -- skoki $F_C$ ($\Delta = \pm 1$, $\pm 5$, $\pm 10$ m$^3$/min)}
+    \label{fig:1b_fc}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_CAin_m0.5.pdf}
-    \caption{Skok $\Delta C_{Ain} = -0{,}5$ kmol/m$^3$}
-    \label{fig:1b_cain_m05}
+    \includegraphics[width=0.95\textwidth]{wykresy/1b_Tin.pdf}
+    \caption{NL vs LIN -- skoki $T_{in}$ ($\Delta = \pm 2$, $\pm 10$, $\pm 20$ K)}
+    \label{fig:1b_tin}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_CAin_p0.5.pdf}
-    \caption{Skok $\Delta C_{Ain} = +0{,}5$ kmol/m$^3$}
-    \label{fig:1b_cain_p05}
+    \includegraphics[width=0.95\textwidth]{wykresy/1b_TCin.pdf}
+    \caption{NL vs LIN -- skoki $T_{Cin}$ ($\Delta = \pm 2$, $\pm 10$, $\pm 20$ K)}
+    \label{fig:1b_tcin}
 \end{figure}
-
-% --- FC ---
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_FC_m1.pdf}
-    \caption{Skok $\Delta F_C = -1$ m$^3$/min}
-    \label{fig:1b_fc_m1}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_FC_p1.pdf}
-    \caption{Skok $\Delta F_C = +1$ m$^3$/min}
-    \label{fig:1b_fc_p1}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_FC_m5.pdf}
-    \caption{Skok $\Delta F_C = -5$ m$^3$/min}
-    \label{fig:1b_fc_m5}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_FC_p5.pdf}
-    \caption{Skok $\Delta F_C = +5$ m$^3$/min}
-    \label{fig:1b_fc_p5}
-\end{figure}
-
-% --- Tin ---
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_Tin_m2.pdf}
-    \caption{Skok $\Delta T_{in} = -2$ K}
-    \label{fig:1b_tin_m2}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_Tin_p2.pdf}
-    \caption{Skok $\Delta T_{in} = +2$ K}
-    \label{fig:1b_tin_p2}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_Tin_m10.pdf}
-    \caption{Skok $\Delta T_{in} = -10$ K}
-    \label{fig:1b_tin_m10}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_Tin_p10.pdf}
-    \caption{Skok $\Delta T_{in} = +10$ K}
-    \label{fig:1b_tin_p10}
-\end{figure}
-
-% --- TCin ---
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_TCin_m2.pdf}
-    \caption{Skok $\Delta T_{Cin} = -2$ K}
-    \label{fig:1b_tcin_m2}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{wykresy/1b_TCin_p2.pdf}
-    \caption{Skok $\Delta T_{Cin} = +2$ K}
-    \label{fig:1b_tcin_p2}
-\end{figure}
-
-% \begin{figure}[H]
-%     \centering
-%     \includegraphics[width=0.95\textwidth]{wykresy/1b_TCin_m10.pdf}
-%     \caption{Skok $\Delta T_{Cin} = -10$ K}
-%     \label{fig:1b_tcin_m10}
-% \end{figure}
-
-% \begin{figure}[H]
-%     \centering
-%     \includegraphics[width=0.95\textwidth]{wykresy/1b_TCin_p10.pdf}
-%     \caption{Skok $\Delta T_{Cin} = +10$ K}
-%     \label{fig:1b_tcin_p10}
-% \end{figure}
 
 \subsection*{Obserwacje}
 
 \begin{enumerate}
-    \item Dla małych skoków ($\Delta C_{Ain} = \pm 0{,}1$, $\Delta F_C = \pm 1$, $\Delta T_{in} = \pm 2$, $\Delta T_{Cin} = \pm 2$) odpowiedzi obu modeli praktycznie się pokrywają -- model liniowy dobrze przybliża nieliniowy w~otoczeniu punktu pracy.
-    \item Ze wzrostem amplitudy różnice rosną, szczególnie w~temperaturze $T$, ze względu na większą nieliniowość.
-    \item Wejście $T_{Cin}$ generuje największe rozbieżności -- w przypadku dużej zmiany temperatury, dalej od punktu pracy model nieliniowy i liniowy bardziej odbiegają od siebie.
-    \item Odpowiedzi są asymetryczne -- skoki dodatnie i~ujemne o~tej samej wartości bezwzględnej dają różne błędy.
+    \item Dla małych skoków (np.~$\Delta C_{Ain} = \pm 0{,}1$, $\Delta F_C = \pm 1$, $\Delta T_{in} = \pm 2$, $\Delta T_{Cin} = \pm 2$) linie ciągłe i~przerywane praktycznie się pokrywają -- model liniowy dobrze przybliża nieliniowy w~otoczeniu punktu pracy.
+    \item Ze wzrostem amplitudy różnice rosną, szczególnie widoczne w~temperaturze $T$, ze względu na silną nieliniowość członu Arrheniusa $e^{-E/(RT)}$.
+    \item Przy dużych skokach ($\Delta C_{Ain} = \pm 1$, $\Delta F_C = \pm 10$, $\Delta T_{Cin} = \pm 20$) model liniowy wyraźnie odbiega od nieliniowego -- aproksymacja liniowa jest niewystarczająca.
+    \item Odpowiedzi są asymetryczne -- skoki dodatnie i~ujemne o~tej samej wartości bezwzględnej dają różne rozbieżności, co jest naturalną konsekwencją nieliniowości obiektu.
+    \item Wejście $T_{Cin}$ generuje największe różnice, ponieważ zmiana temperatury chłodziwa bezpośrednio wpływa na bilans cieplny reaktora, a~przez sprzężenie z~kinetyką Arrheniusa efekt jest wzmacniany.
 \end{enumerate}
 
 
@@ -923,9 +858,32 @@ Gz = tf(sys_d)
     \label{fig:1d_sim}
 \end{figure}
 
-\subsection{Wybrany okres próbkowania}
+\subsection{Dobór okresu próbkowania}
 
-Jako okres próbkowania wybrano $T_p = 0{,}1$ min. Jest to kompromis między dokładnością odwzorowania dynamiki obiektu a~złożonością obliczeniową przyszłego regulatora.
+W~celu doboru okresu próbkowania porównano odpowiedzi skokowe modelu ciągłego z~modelami dyskretnymi dla czterech wartości: $T_p \in \{0{,}01;\; 0{,}05;\; 0{,}1;\; 0{,}5\}$ min. Dla każdego $T_p$ przeprowadzono dyskretyzację metodą ZOH i~porównano odpowiedzi na skoki jednostkowe poszczególnych wejść.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{wykresy/1d_jakosc_sterowania.pdf}
+    \caption{Jakość dyskretyzacji -- sterowania ($C_{Ain}$, $F_C$) dla różnych $T_p$}
+    \label{fig:1d_jakosc_ster}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{wykresy/1d_jakosc_zaklocenia.pdf}
+    \caption{Jakość dyskretyzacji -- zakłócenia ($T_{in}$, $T_{Cin}$) dla różnych $T_p$}
+    \label{fig:1d_jakosc_zakl}
+\end{figure}
+
+Na podstawie rysunków \ref{fig:1d_jakosc_ster} i~\ref{fig:1d_jakosc_zakl} można zauważyć, że:
+\begin{itemize}
+    \item Dla $T_p = 0{,}01$ i~$T_p = 0{,}05$ min odpowiedzi dyskretne są praktycznie nieodróżnialne od ciągłych.
+    \item Dla $T_p = 0{,}1$ min jakość jest nadal bardzo dobra -- niewielkie różnice widoczne tylko w~szczytach oscylacji.
+    \item Dla $T_p = 0{,}5$ min pojawiają się zauważalne odchylenia -- zbyt rzadkie próbkowanie względem dynamiki obiektu.
+\end{itemize}
+
+Jako okres próbkowania wybrano $T_p = 0{,}1$ min -- kompromis między dokładnością odwzorowania dynamiki a~złożonością obliczeniową przyszłego regulatora DMC. Mniejsze wartości $T_p$ nie poprawiają istotnie jakości, a~zwiększają liczbę próbek i~wymiar macierzy regulatora.
 
 \subsection{Weryfikacja -- porównanie modelu dyskretnego liniowego z~nieliniowym}
 
@@ -953,6 +911,26 @@ Testowano dwa małe skoki: $\Delta C_{Ain} = +0{,}1$ kmol/m$^3$ oraz $\Delta F_C
 \end{figure}
 
 Dla małych skoków wszystkie trzy krzywe praktycznie się pokrywają, co potwierdza poprawność dyskretyzacji. Model dyskretny wiernie odwzorowuje model liniowy ciągły przy wybranym $T_p = 0{,}1$ min, a~ewentualne różnice względem modelu nieliniowego wynikają wyłącznie z~błędu linearyzacji, nie z~samej dyskretyzacji.
+
+\subsection{Porównanie transmitancji dyskretnych z~dyskretnym modelem w~przestrzeni stanu}
+
+W~celu weryfikacji spójności obu reprezentacji modelu dyskretnego porównano odpowiedzi skokowe uzyskane z:
+\begin{itemize}
+    \item \textbf{modelu w~przestrzeni stanu} -- obiekt \texttt{sys\_d} klasy \texttt{ss} (macierze $\mathbf{A}_d, \mathbf{B}_d, \mathbf{C}_d, \mathbf{D}_d$),
+    \item \textbf{transmitancji dyskretnych} -- obiekt \texttt{tf(sys\_d)} klasy \texttt{tf} (wielomiany $G_{ij}(z)$).
+\end{itemize}
+
+Testowano skok $\Delta C_{Ain} = +0{,}1$ kmol/m$^3$ w~chwili $t = 5$ min. Oba modele symulowano za pomocą funkcji \texttt{lsim} na tym samym wektorze czasu dyskretnego.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{wykresy/1d_ss_vs_tf.pdf}
+    \caption{Porównanie odpowiedzi: przestrzeń stanu vs transmitancje dyskretne (skok $\Delta C_{Ain} = +0{,}1$)}
+    \label{fig:1d_ss_vs_tf}
+\end{figure}
+
+Jak widać na rysunku~\ref{fig:1d_ss_vs_tf}, obie krzywe są identyczne -- nakładają się na siebie z~dokładnością numeryczną rzędu $10^{-15}$. Potwierdza to, że transmitancje dyskretne $G_{ij}(z)$ otrzymane z~funkcji \texttt{tf()} stanowią dokładny odpowiednik macierzowego modelu w~przestrzeni stanu. Różnica między reprezentacjami jest na poziomie błędów zaokrągleń zmiennoprzecinkowych i~nie ma żadnego wpływu na wyniki symulacji ani na projektowanie regulatora.
+
 % % ==============================================================
 % \section{Podsumowanie}
 % % ==============================================================

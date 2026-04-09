@@ -1,15 +1,7 @@
 clear; clc; close all;
 
-%% Parametry
-p.q = 1e6;  p.q_c = 1e6;
-p.c_p = 1;  p.c_pc = 1;
-p.k0 = 1e10; p.E_R = 8330.1;
-p.h = 130e6; p.a = 1.678e6; p.b = 0.5;
-p.V = 1; p.F = 1; p.F_in = 1;
-
 %% Punkt pracy
-x0 = [0.26, 393.9];
-u0 = [2, 15, 323, 365];
+[x0, u0, p] = punkt_pracy();
 
 %% Model ciagly
 A = jacobian_A(x0, u0, p);
@@ -100,6 +92,8 @@ for in_i = 1:2
     end
 end
 sgtitle('Jakosc dyskretyzacji (ZOH) - sterowania');
+if ~exist('wykresy', 'dir'), mkdir('wykresy'); end
+exportgraphics(gcf, 'wykresy/1d_jakosc_sterowania.pdf', 'ContentType', 'vector');
 
 figure('Name','Jakosc dyskretyzacji - zaklocenia', ...
     'NumberTitle','off', 'Position',[100 100 1200 700]);
@@ -135,6 +129,7 @@ for in_i = 3:4
     end
 end
 sgtitle('Jakosc dyskretyzacji (ZOH) - zaklocenia');
+exportgraphics(gcf, 'wykresy/1d_jakosc_zaklocenia.pdf', 'ContentType', 'vector');
 
 %% Wybrany model dyskretny Tp = 0.1
 Tp = 0.1;
@@ -210,6 +205,40 @@ for ti = 1:size(test_skoki, 1)
     exportgraphics(gcf, sprintf('wykresy/1d_weryfikacja_%s.pdf', input_short_w{ti}), ...
         'ContentType', 'vector');
 end
+
+%% Porownanie: transmitancje dyskretne vs przestrzen stanow
+G_d_tf = tf(sys_d_final);
+
+du_test = zeros(length(t_d), 4);
+du_test(t_d >= step_time, 1) = 0.1;
+
+[y_ss, ~] = lsim(sys_d_final, du_test, t_d);
+[y_tf, ~] = lsim(G_d_tf, du_test, t_d);
+
+figure('Name','SS vs TF dyskretne','NumberTitle','off', ...
+    'Position',[50 50 1000 500]);
+
+subplot(1,2,1);
+stairs(t_d, y_ss(:,1), 'b-', 'LineWidth', 2); hold on;
+stairs(t_d, y_tf(:,1), 'r--', 'LineWidth', 1.5);
+xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
+xlabel('t [min]'); ylabel('\Delta C_A'); title('C_A');
+legend('przestrzen stanow','transmitancje','Location','best');
+grid on;
+
+subplot(1,2,2);
+stairs(t_d, y_ss(:,2), 'b-', 'LineWidth', 2); hold on;
+stairs(t_d, y_tf(:,2), 'r--', 'LineWidth', 1.5);
+xline(step_time, ':', 'Color', [0.5 0.5 0.5]);
+xlabel('t [min]'); ylabel('\Delta T'); title('T');
+legend('przestrzen stanow','transmitancje','Location','best');
+grid on;
+
+sgtitle('Porownanie: przestrzen stanow vs transmitancje dyskretne (skok C_{Ain}=+0.1)');
+exportgraphics(gcf, 'wykresy/1d_ss_vs_tf.pdf', 'ContentType', 'vector');
+
+fprintf('Max roznica SS vs TF: CA=%.2e, T=%.2e\n', ...
+    max(abs(y_ss(:,1)-y_tf(:,1))), max(abs(y_ss(:,2)-y_tf(:,2))));
 
 %%
 
